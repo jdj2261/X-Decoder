@@ -158,7 +158,7 @@ VLP:
     BATCH_SIZE_TOTAL: 2
     BATCH_SIZE_PER_GPU: 2
   TEST:
-    BATCH_SIZE_TOTAL: 256
+    BATCH_SIZE_TOTAL: 64
   DATALOADER:
     FILTER_EMPTY_ANNOTATIONS: False
     NUM_WORKERS: 16
@@ -172,7 +172,9 @@ INPUT:
 
 DATASETS:
   # open vocabulary segmentation evaluation.
-  TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val", "sunrgbd_37_val_seg", "scannet_21_val_seg", "scannet_21_panoptic_val", "scannet_41_val_seg", "cityscapes_fine_panoptic_val", "cityscapes_fine_instance_seg_val", "cityscapes_fine_sem_seg_val", "bdd10k_val_sem_seg", "bdd10k_40_panoptic_val"]
+  # TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val", "sunrgbd_37_val_seg", "scannet_21_val_seg", "scannet_21_panoptic_val", "scannet_41_val_seg", "cityscapes_fine_panoptic_val", "cityscapes_fine_instance_seg_val", "cityscapes_fine_sem_seg_val", "bdd10k_val_sem_seg", "bdd10k_40_panoptic_val"]
+  TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val"]
+  # TEST: [ "ade20k_full_sem_seg_val"]
   # Supervised metrics evaluation.
   # TEST: ["vlp_captioning_val", "refcocog_val_umd", "vlp_val"]
   CLASS_CONCAT: false
@@ -193,8 +195,8 @@ ADE20K:
     MIN_SIZE_TRAIN: 640
     MIN_SIZE_TRAIN_SAMPLING: "choice"
     MIN_SIZE_TEST: 640
-    MAX_SIZE_TRAIN: 2560
-    MAX_SIZE_TEST: 2560
+    MAX_SIZE_TRAIN: 200 #2560
+    MAX_SIZE_TEST: 200 #2560
     MASK_FORMAT: "polygon"
     CROP:
       ENABLED: True

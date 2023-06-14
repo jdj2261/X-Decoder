@@ -2,8 +2,8 @@ import os
 import json
 from refer import REFER
 
-coco_root = '/pth/to/coco'
-ref_root = '/pth/to/refcocoseg'
+coco_root = '../coco'
+ref_root = '../refcocoseg'
 
 coco_train_annot = json.load(open(os.path.join(coco_root, 'annotations/instances_train2017.json')))
 coco_train_id = []

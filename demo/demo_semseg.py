@@ -28,7 +28,8 @@ from xdecoder import build_model
 from utils.visualizer import Visualizer
 from utils.distributed import init_distributed
 
-
+import warnings
+warnings.filterwarnings(action='ignore')
 logger = logging.getLogger(__name__)
 
 
