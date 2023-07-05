@@ -117,6 +117,6 @@ def sem_seg_postprocess(result, img_size, output_height, output_width):
     """
     result = result[:, : img_size[0], : img_size[1]].expand(1, -1, -1, -1)
     result = F.interpolate(
-        result, size=(output_height, output_width), mode="bicubic", align_corners=False, antialias=True
+        result.float(), size=(output_height, output_width), mode="bicubic", align_corners=False, antialias=True
     )[0]
     return result

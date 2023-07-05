@@ -58,8 +58,9 @@ def load_opt_command(args):
     cmdline_args = parser.parse_args() if not args else parser.parse_args(args)
 
     opt = load_opt_from_config_files(cmdline_args.conf_files)
-    print(cmdline_args)
+
     if cmdline_args.config_overrides:
+        print(cmdline_args.config_overrides)
         config_overrides_string = ' '.join(cmdline_args.config_overrides)
         logger.warning(f"Command line config overrides: {config_overrides_string}")
         config_dict = json.loads(config_overrides_string)
