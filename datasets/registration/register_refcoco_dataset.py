@@ -32,9 +32,13 @@ _PREDEFINED_SPLITS_COCO_PANOPTIC_CAPTION = {
     #     "coco/train2017", # image_root
     #     "coco/annotations/refcoco_unc.json", # annot_root
     # ),
+    # "refcocog_val_umd": (
+    #     "coco/train2017", # image_root
+    #     "coco/annotations/refcocog_umd_val.json", # annot_root
+    # ),
     "refcocog_val_umd": (
-        "coco/train2017", # image_root
-        "coco/annotations/refcocog_umd_val.json", # annot_root
+        "coco/images/train2017", # image_root
+        "coco/annotations/refcocog_umd_train.json", # annot_root
     ),
 }
 
@@ -110,5 +114,5 @@ def register_all_refcoco(root):
         )
 
 
-_root = os.getenv("DATASET", "datasets")
+_root = os.getenv("DATASET", "../datasets")
 register_all_refcoco(_root)

@@ -107,6 +107,7 @@ class RefCOCODatasetMapper:
     @classmethod
     def from_config(cls, cfg, is_train=True):
         # Build augmentation
+        print(cfg)
         if is_train:
             tfm_gens = build_transform_gen(cfg, is_train)
         else:

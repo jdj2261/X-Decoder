@@ -173,7 +173,8 @@ INPUT:
 DATASETS:
   # open vocabulary segmentation evaluation.
   # TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val", "sunrgbd_37_val_seg", "scannet_21_val_seg", "scannet_21_panoptic_val", "scannet_41_val_seg", "cityscapes_fine_panoptic_val", "cityscapes_fine_instance_seg_val", "cityscapes_fine_sem_seg_val", "bdd10k_val_sem_seg", "bdd10k_40_panoptic_val"]
-  TEST: ["ade20k_panoptic_val"]
+  TEST: ["refcocog_val_umd"]
+  # TEST: ["refcocog_val_umd"]
   # TEST: [ "ade20k_full_sem_seg_val"]
   # Supervised metrics evaluation.
   # TEST: ["vlp_captioning_val", "refcocog_val_umd", "vlp_val"]
@@ -214,6 +215,22 @@ ADE20K:
 
 
 REF:
+  INPUT:
+    PIXEL_MEAN: [123.675, 116.280, 103.530]
+    PIXEL_STD: [58.395, 57.120, 57.375]
+    MIN_SIZE_TEST: 512
+    MAX_SIZE_TEST: 1024
+    FORMAT: "RGB"
+  DATALOADER:
+    FILTER_EMPTY_ANNOTATIONS: False
+    NUM_WORKERS: 0
+    LOAD_PROPOSALS: False
+    SAMPLER_TRAIN: "TrainingSampler"
+    ASPECT_RATIO_GROUPING: False
+  TEST:
+    BATCH_SIZE_TOTAL: 8
+
+VCOCO:
   INPUT:
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
