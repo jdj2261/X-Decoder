@@ -377,10 +377,34 @@ def build_detection_train_loader(
     )
 
 
+@configurable(from_config=_train_loader_from_config)
+def build_hoi_train_loader(
+    dataset, *, mapper, sampler=None, total_batch_size, aspect_ratio_grouping=True, num_workers=0
+):
+    if isinstance(dataset, list):
+        dataset = DatasetFromList(dataset, copy=False)
+    if mapper is not None:
+        dataset = MapDataset(dataset, mapper)
+    if sampler is None:
+        sampler = TrainingSampler(len(dataset))
+    assert isinstance(sampler, torch.utils.data.sampler.Sampler)
+
+    return build_batch_data_loader(
+        dataset,
+        sampler,
+        total_batch_size,
+        aspect_ratio_grouping=aspect_ratio_grouping,
+        num_workers=num_workers,
+    )
+
+
 def get_config_from_name(cfg, dataset_name):
     # adjust config according to dataset
     if 'refcoco' in dataset_name:
         cfg.update(cfg['REF'])
+        return cfg
+    elif 'vcoco' in dataset_name:
+        cfg.update(cfg['VCOCO'])
         return cfg
     elif 'coco' in dataset_name:
         if 'COCO' in cfg.keys():
@@ -409,8 +433,6 @@ def get_config_from_name(cfg, dataset_name):
     elif 'bdd' in dataset_name:
         cfg.update(cfg['BDD'])
         return cfg
-    elif 'vcoco' in dataset_name:
-        cfg.update(cfg['VCOCO'])
     else:
         assert False, "dataset not support."
 
@@ -448,7 +470,6 @@ def build_eval_dataloader(cfg, ):
 
 def build_train_dataloader(cfg, ):
     dataset_names = cfg['DATASETS']['TRAIN']
-    
     loaders = {}
     for dataset_name in dataset_names:
         cfg = get_config_from_name(cfg, dataset_name)
@@ -479,11 +500,16 @@ def build_train_dataloader(cfg, ):
         elif mapper_name == "refcoco":
             mapper = RefCOCODatasetMapper(cfg, True)
             loaders['ref'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+        elif mapper_name == "vcoco":
+            mapper = VCOCODatasetMapper(cfg, True)
+            loaders[dataset_name] = build_hoi_train_loader(cfg, dataset_name, mapper=mapper)
         else:
             mapper = None
             loaders[dataset_name] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
 
-    if len(loaders) == 1 and not cfg['LOADER'].get('JOINT', False):
+
+    # if len(loaders) == 1 and not cfg['LOADER'].get('JOINT', False):
+    if len(loaders) == 1:
         return list(loaders.values())[0]
     else:
         return JointLoader(loaders, key_dataset=cfg['LOADER'].get('KEY_DATASET', 'coco'))

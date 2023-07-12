@@ -1,4 +1,5 @@
 import os
+import random
 
 coco_class_list = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush", None ]
 
@@ -297,3 +298,10 @@ class ShellColors:
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
 
+
+def random_color():
+    rdn = random.randint(1, 1000)
+    b = int(rdn * 997) % 255
+    g = int(rdn * 4447) % 255
+    r = int(rdn * 6563) % 255
+    return b, g, r

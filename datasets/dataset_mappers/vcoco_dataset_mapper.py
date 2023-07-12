@@ -111,6 +111,9 @@ class VCOCODatasetMapper:
         img = Image.open(file_name).convert('RGB')
         w, h = img.size
 
+        if self.is_train and len(dataset_dict['annotations']) > self.num_queries:
+            dataset_dict['annotations'] = dataset_dict['annotations'][:self.num_queries]
+
         boxes = [obj['bbox'] for obj in dataset_dict['annotations']]
         boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
 
