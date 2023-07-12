@@ -42,7 +42,9 @@ from .dataset_mappers import (
     BDDSemDatasetMapper,
     ScanNetPanoDatasetMapper,
     RefCOCODatasetMapper,
+    VCOCODatasetMapper
 )
+
 from .evaluation import (InstanceSegEvaluator, 
                          ClassificationEvaluator, 
                          SemSegEvaluator, 
@@ -122,6 +124,33 @@ def get_detection_dataset_dicts(
     Returns:
         list[dict]: a list of dicts following the standard dataset dict format.
     """
+    if isinstance(dataset_names, str):
+        dataset_names = [dataset_names]
+    assert len(dataset_names)
+    
+    dataset_dicts = [DatasetCatalog.get(dataset_name) for dataset_name in dataset_names]
+    for dataset_name, dicts in zip(dataset_names, dataset_dicts):
+        assert len(dicts), "Dataset '{}' is empty!".format(dataset_name)
+
+    if proposal_files is not None:
+        assert len(dataset_names) == len(proposal_files)
+        # load precomputed proposals from proposal files
+        dataset_dicts = [
+            load_proposals_into_dataset(dataset_i_dicts, proposal_file)
+            for dataset_i_dicts, proposal_file in zip(dataset_dicts, proposal_files)
+        ]
+
+    dataset_dicts = list(itertools.chain.from_iterable(dataset_dicts))
+
+    has_instances = "annotations" in dataset_dicts[0]
+    if filter_empty and has_instances:
+        dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names)
+
+    assert len(dataset_dicts), "No valid data found in {}.".format(",".join(dataset_names))
+    return dataset_dicts
+
+
+def get_hoi_dataset_dicts(dataset_names, filter_empty=True, proposal_files=None):
     if isinstance(dataset_names, str):
         dataset_names = [dataset_names]
     assert len(dataset_names)
@@ -242,6 +271,35 @@ def build_detection_test_loader(
     )
 
 
+@configurable(from_config=_test_loader_from_config)
+def build_hoi_test_loader(
+    dataset: Union[List[Any], torchdata.Dataset],
+    *,
+    mapper: Callable[[Dict[str, Any]], Any],
+    sampler: Optional[torchdata.Sampler] = None,
+    batch_size: int = 1,
+    num_workers: int = 0,
+    collate_fn: Optional[Callable[[List[Any]], Any]] = None,
+) -> torchdata.DataLoader:
+
+    if isinstance(dataset, list):
+        dataset = DatasetFromList(dataset, copy=False)
+    if mapper is not None:
+        dataset = MapDataset(dataset, mapper)
+    if isinstance(dataset, torchdata.IterableDataset):
+        assert sampler is None, "sampler must be None if dataset is IterableDataset"
+    else:
+        if sampler is None:
+            sampler = InferenceSampler(len(dataset))
+    return torchdata.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        drop_last=False,
+        num_workers=num_workers,
+        collate_fn=trivial_batch_collator if collate_fn is None else collate_fn,
+    )
+
 def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sampler=None):
     cfg_datasets = cfg['DATASETS']
     cfg_dataloader = cfg['DATALOADER']
@@ -351,6 +409,8 @@ def get_config_from_name(cfg, dataset_name):
     elif 'bdd' in dataset_name:
         cfg.update(cfg['BDD'])
         return cfg
+    elif 'vcoco' in dataset_name:
+        cfg.update(cfg['VCOCO'])
     else:
         assert False, "dataset not support."
 
@@ -376,7 +436,13 @@ def build_eval_dataloader(cfg, ):
             mapper = RefCOCODatasetMapper(cfg, False)
         else:
             mapper = None
-        dataloaders += [build_detection_test_loader(cfg, dataset_name, mapper=mapper)]
+
+        if 'vcoco' in dataset_name:
+            mapper = VCOCODatasetMapper(cfg, False)
+            dataloaders += [build_hoi_test_loader(cfg, dataset_name, mapper=mapper)]
+        else:
+            dataloaders += [build_detection_test_loader(cfg, dataset_name, mapper=mapper)]
+
     return dataloaders
 
 

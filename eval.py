@@ -115,7 +115,6 @@ def main(args=None):
                     )                
                 start_data_time = time.perf_counter()
 
-
         # evaluate
         results = evaluator.evaluate()
 

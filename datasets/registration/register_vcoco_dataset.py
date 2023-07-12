@@ -1,5 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import os
+import json
 
 from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.data.datasets import load_sem_seg
@@ -11,7 +12,7 @@ _PREDEFINED_SPLITS_VCOCO_CAPTION = {
         "v-coco/annotations/trainval_vcoco.json"
     ),
     "vcoco_val": (
-        "v-coco/images/train2014",
+        "v-coco/images/val2014",
         "v-coco/annotations/test_vcoco.json"
     ),
 }
@@ -129,46 +130,43 @@ VCOCO_ACTIONS = [
     {'id': 26, 'name': 'snowboard'}
 ]
 
-def load_vcoco_json():
-    pass
+
+def load_vcoco_json(image_root, anno_file):
+    json_file = os.path.join(anno_file)
+    with open(json_file) as f:
+        vcoco_anns = json.load(f)
+    
+    dataset_dicts = []
+    for idx, v in enumerate(vcoco_anns):
+        record = {}
+        record["id"] = idx
+        for key, val in v.items():
+            if key == "file_name":
+                record[key] = os.path.join(image_root, v["file_name"])
+            else:
+                record[key] = val
+        dataset_dicts.append(record)
+    return dataset_dicts
+
 
 def get_metadata():
-    """
-    Returns metadata for VCOCO dataset.
-    """
-    thing_ids = [k["id"] for k in COCO_CATEGORIES if k["isthing"] == 1]
-    thing_colors = [k["color"] for k in COCO_CATEGORIES if k["isthing"] == 1]
-    assert len(thing_ids) == 80, len(thing_ids)
-
-    thing_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(thing_ids)}
-    thing_classes = [k["name"] for k in COCO_CATEGORIES if k["isthing"] == 1]
-    person_cls_id = [k["id"] for k in COCO_CATEGORIES if k["name"] == 'person'][0]
-    action_classes = [k["name"] for k in VCOCO_ACTIONS]
-
-    ret = {
-        "thing_dataset_id_to_contiguous_id": thing_dataset_id_to_contiguous_id,
-        "thing_classes":  thing_classes,
-        "thing_colors":   thing_colors,
-        "person_cls_id":  person_cls_id,
-        "action_classes": action_classes,
-    }
-    return ret
+    meta = {}
+    return meta
 
 
-def register_vcoco(
-    name, metadata, image_root, annot_json):
+def register_vcoco(name, metadata, image_root, annot_json):
     DatasetCatalog.register(
         name,
-        lambda: load_vcoco_json(image_root, annot_json, metadata),
+        lambda: load_vcoco_json(image_root, annot_json),
     )
     MetadataCatalog.get(name).set(
         image_root=image_root,
         json_file=annot_json,
         evaluator_type="vcoco",
+        ignore_label=255,
+        label_divisor=1000,
         **metadata,
     )
-
-
 
 
 def register_all_vcoco(root):
@@ -182,6 +180,7 @@ def register_all_vcoco(root):
             os.path.join(root, image_root),
             os.path.join(root, annot_root),
         )
+
 
 _root = os.getenv("DATASET", "../datasets")
 register_all_vcoco(_root)
