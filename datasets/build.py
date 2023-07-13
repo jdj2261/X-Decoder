@@ -388,7 +388,6 @@ def build_hoi_train_loader(
     if sampler is None:
         sampler = TrainingSampler(len(dataset))
     assert isinstance(sampler, torch.utils.data.sampler.Sampler)
-
     return build_batch_data_loader(
         dataset,
         sampler,
@@ -396,7 +395,6 @@ def build_hoi_train_loader(
         aspect_ratio_grouping=aspect_ratio_grouping,
         num_workers=num_workers,
     )
-
 
 def get_config_from_name(cfg, dataset_name):
     # adjust config according to dataset
