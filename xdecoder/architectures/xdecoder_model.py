@@ -527,7 +527,6 @@ class GeneralizedXdecoder(nn.Module):
             mask_cls = F.softmax(mask_cls.float(), dim=-1, dtype=torch.float)[..., :-1]
         # changed
         mask_pred = mask_pred.type(torch.float)
-        # print(type(mask_pred))
         mask_pred = mask_pred.float().sigmoid()
         semseg = torch.einsum("qc,qhw->chw", mask_cls, mask_pred)
         return semseg

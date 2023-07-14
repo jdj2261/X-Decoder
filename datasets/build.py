@@ -305,7 +305,7 @@ def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sample
     cfg_dataloader = cfg['DATALOADER']
     
     if dataset is None:
-        dataset = get_detection_dataset_dicts(
+        dataset = get_hoi_dataset_dicts(
             dataset_name,
             filter_empty=cfg_dataloader['FILTER_EMPTY_ANNOTATIONS'],
             proposal_files=cfg_datasets['PROPOSAL_FILES_TRAIN'] if cfg_dataloader['LOAD_PROPOSALS'] else None,
