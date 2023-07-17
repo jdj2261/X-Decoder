@@ -277,7 +277,6 @@ class TransformerEncoderPixelDecoder(BasePixelDecoder):
         multi_scale_features = []
         num_cur_levels = 0
         
-        print(self.in_features[::-1])
         # Reverse feature maps into top-down order (from low to high resolution)
         for idx, f in enumerate(self.in_features[::-1]):
             x = features[f]

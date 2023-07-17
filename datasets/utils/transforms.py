@@ -1,6 +1,6 @@
 import random
 
-import PIL
+from PIL import Image
 import torch
 import torchvision.transforms as T
 import torchvision.transforms.functional as F

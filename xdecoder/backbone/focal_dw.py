@@ -777,6 +777,7 @@ class D2FocalNet(FocalNet, Backbone):
 
 @register_backbone
 def get_focal_backbone(cfg):
+    print("focal_dw")
     focal = D2FocalNet(cfg['MODEL'], 224)    
 
     if cfg['MODEL']['BACKBONE']['LOAD_PRETRAINED'] is True:
