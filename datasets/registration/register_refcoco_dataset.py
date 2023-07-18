@@ -37,8 +37,8 @@ _PREDEFINED_SPLITS_COCO_PANOPTIC_CAPTION = {
     #     "coco/annotations/refcocog_umd_val.json", # annot_root
     # ),
     "refcocog_val_umd": (
-        "coco/images/train2017", # image_root
-        "coco/annotations/refcocog_umd_train.json", # annot_root
+        "coco/images/train2017",  # image_root
+        "coco/annotations/refcocog_umd_train.json",  # annot_root
     ),
 }
 
@@ -61,17 +61,17 @@ def load_refcoco_json(image_root, annot_json, metadata):
 
     with PathManager.open(annot_json) as f:
         json_info = json.load(f)
-        
+
     # build dictionary for grounding
     grd_dict = collections.defaultdict(list)
-    for grd_ann in json_info['annotations']:
+    for grd_ann in json_info["annotations"]:
         image_id = int(grd_ann["image_id"])
         grd_dict[image_id].append(grd_ann)
 
     ret = []
     for image in json_info["images"]:
         image_id = int(image["id"])
-        image_file = os.path.join(image_root, image['file_name'])
+        image_file = os.path.join(image_root, image["file_name"])
         grounding_anno = grd_dict[image_id]
         ret.append(
             {
@@ -85,8 +85,7 @@ def load_refcoco_json(image_root, annot_json, metadata):
     return ret
 
 
-def register_refcoco(
-    name, metadata, image_root, annot_json):
+def register_refcoco(name, metadata, image_root, annot_json):
     DatasetCatalog.register(
         name,
         lambda: load_refcoco_json(image_root, annot_json, metadata),

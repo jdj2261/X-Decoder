@@ -21,6 +21,7 @@ from xdecoder.utils import configurable
 
 __all__ = ["COCOPanopticNewBaselineDatasetMapper"]
 
+
 def build_transform_gen(cfg, is_train):
     """
     Create a list of default :class:`Augmentation` from config.
@@ -29,29 +30,33 @@ def build_transform_gen(cfg, is_train):
         list[Augmentation]
     """
     assert is_train, "Only support training augmentation"
-    cfg_input = cfg['INPUT']
-    image_size = cfg_input['IMAGE_SIZE']
-    min_scale = cfg_input['MIN_SCALE']
-    max_scale = cfg_input['MAX_SCALE']
+    cfg_input = cfg["INPUT"]
+    image_size = cfg_input["IMAGE_SIZE"]
+    min_scale = cfg_input["MIN_SCALE"]
+    max_scale = cfg_input["MAX_SCALE"]
 
     augmentation = []
 
-
-    if cfg_input['RANDOM_FLIP'] != "none":
+    if cfg_input["RANDOM_FLIP"] != "none":
         augmentation.append(
             T.RandomFlip(
-                horizontal=cfg_input['RANDOM_FLIP'] == "horizontal",
-                vertical=cfg_input['RANDOM_FLIP'] == "vertical",
+                horizontal=cfg_input["RANDOM_FLIP"] == "horizontal",
+                vertical=cfg_input["RANDOM_FLIP"] == "vertical",
             )
         )
 
-    augmentation.extend([
-        T.ResizeScale(
-            min_scale=min_scale, max_scale=max_scale, target_height=image_size, target_width=image_size
-        ),
-        T.FixedSizeCrop(crop_size=(image_size, image_size)),
-    ])
-    
+    augmentation.extend(
+        [
+            T.ResizeScale(
+                min_scale=min_scale,
+                max_scale=max_scale,
+                target_height=image_size,
+                target_width=image_size,
+            ),
+            T.FixedSizeCrop(crop_size=(image_size, image_size)),
+        ]
+    )
+
     return augmentation
 
 
@@ -103,7 +108,9 @@ class COCOPanopticNewBaselineDatasetMapper:
         self.caption_thres = caption_thres
         self.grounding = grounding
         self.max_grounding_num = max_grounding_num
-        self.caption_similarity = torch.load(MetadataCatalog.get('logistic').get('caption_similarity_pth'))
+        self.caption_similarity = torch.load(
+            MetadataCatalog.get("logistic").get("caption_similarity_pth")
+        )
 
     @classmethod
     def from_config(cls, cfg, is_train=True):
@@ -113,10 +120,10 @@ class COCOPanopticNewBaselineDatasetMapper:
         ret = {
             "is_train": is_train,
             "tfm_gens": tfm_gens,
-            "image_format": cfg['INPUT']['FORMAT'],
-            "caption_thres": cfg['MODEL']['DECODER']['CAPTION']['SIM_THRES'],
-            "grounding": cfg['MODEL']['DECODER']['GROUNDING']['ENABLED'],
-            "max_grounding_num": cfg['MODEL']['DECODER']['GROUNDING']['MAX_LEN'],
+            "image_format": cfg["INPUT"]["FORMAT"],
+            "caption_thres": cfg["MODEL"]["DECODER"]["CAPTION"]["SIM_THRES"],
+            "grounding": cfg["MODEL"]["DECODER"]["GROUNDING"]["ENABLED"],
+            "max_grounding_num": cfg["MODEL"]["DECODER"]["GROUNDING"]["MAX_LEN"],
         }
         return ret
 
@@ -138,17 +145,25 @@ class COCOPanopticNewBaselineDatasetMapper:
         # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
         # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
         # Therefore it's important to use torch.Tensor.
-        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1)))
+        dataset_dict["image"] = torch.as_tensor(
+            np.ascontiguousarray(image.transpose(2, 0, 1))
+        )
 
         # Add caption noun that is not in coco set to target
         captions = dataset_dict["captions"]
         captions_noun = []
         for caption in captions:
-            nouns = np.array(text_noun_with_prompt_all(caption, phrase_prob=0.0, append_text=False)[1])
-            cap_similarity = np.array([self.caption_similarity[noun][0] for noun in nouns])
+            nouns = np.array(
+                text_noun_with_prompt_all(caption, phrase_prob=0.0, append_text=False)[
+                    1
+                ]
+            )
+            cap_similarity = np.array(
+                [self.caption_similarity[noun][0] for noun in nouns]
+            )
             captions_noun.append(nouns[cap_similarity < self.caption_thres].tolist())
         dataset_dict["captions_noun"] = captions_noun
-        
+
         if not self.is_train:
             # USER: Modify this if you want to keep them for some reason.
             dataset_dict.pop("annotations", None)
@@ -174,7 +189,7 @@ class COCOPanopticNewBaselineDatasetMapper:
                     classes.append(class_id)
                     masks.append(pan_seg_gt == segment_info["id"])
 
-            is_things = [COCO_CATEGORIES[idx]['isthing'] for idx in classes]
+            is_things = [COCO_CATEGORIES[idx]["isthing"] for idx in classes]
             classes = np.array(classes)
             is_things = np.array(is_things)
             instances.gt_classes = torch.tensor(classes, dtype=torch.int64)
@@ -182,11 +197,18 @@ class COCOPanopticNewBaselineDatasetMapper:
 
             if len(masks) == 0:
                 # Some image does not have annotation (all ignored)
-                instances.gt_masks = torch.zeros((0, pan_seg_gt.shape[-2], pan_seg_gt.shape[-1]))
+                instances.gt_masks = torch.zeros(
+                    (0, pan_seg_gt.shape[-2], pan_seg_gt.shape[-1])
+                )
                 instances.gt_boxes = Boxes(torch.zeros((0, 4)))
             else:
                 masks = BitMasks(
-                    torch.stack([torch.from_numpy(np.ascontiguousarray(x.copy())) for x in masks])
+                    torch.stack(
+                        [
+                            torch.from_numpy(np.ascontiguousarray(x.copy()))
+                            for x in masks
+                        ]
+                    )
                 )
                 instances.gt_masks = masks.tensor
                 instances.gt_boxes = masks.get_bounding_boxes()
@@ -194,25 +216,28 @@ class COCOPanopticNewBaselineDatasetMapper:
             dataset_dict["instances"] = instances
 
         if self.grounding:
-            grounding_anno = dataset_dict['grounding_info']
-            grounding_len = random.randint(1, self.max_grounding_num-1)
+            grounding_anno = dataset_dict["grounding_info"]
+            grounding_len = random.randint(1, self.max_grounding_num - 1)
             if len(grounding_anno) > 0:
                 masks_grd = []
                 texts_grd = []
-                mode = 'text'
+                mode = "text"
                 random.shuffle(grounding_anno)
                 for ann in grounding_anno:
                     rle = mask.frPyObjects(
-                        ann['segmentation'], dataset_dict['height'], dataset_dict['width'])
+                        ann["segmentation"],
+                        dataset_dict["height"],
+                        dataset_dict["width"],
+                    )
                     m = mask.decode(rle)
                     # sometimes there are multiple binary map (corresponding to multiple segs)
                     m = np.sum(m, axis=2)
                     m = m.astype(np.uint8)  # convert to np.uint8
-                    m = transforms.apply_segmentation(m[:,:,None])[:,:,0]
+                    m = transforms.apply_segmentation(m[:, :, None])[:, :, 0]
                     masks_grd += [m]
                     # random select a sentence of a single annotation.
-                    rand_index = random.randint(0, len(ann['sentences'])-1)
-                    texts_grd += [ann['sentences'][rand_index]['raw'].lower()]
+                    rand_index = random.randint(0, len(ann["sentences"]) - 1)
+                    texts_grd += [ann["sentences"][rand_index]["raw"].lower()]
                 max_len = min(grounding_len, len(texts_grd))
                 indices = np.random.permutation(max_len)
                 texts_grd = list(np.array(texts_grd)[indices])
@@ -220,26 +245,41 @@ class COCOPanopticNewBaselineDatasetMapper:
                 hash_grd = np.array([hash(txt) for txt in texts_grd])
             else:
                 masks_grd = instances.gt_masks
-                mode = 'class'
+                mode = "class"
                 if len(masks_grd) == 0:
                     masks_grd = torch.tensor([])
-                    texts_grd = ['none']
+                    texts_grd = ["none"]
                     hash_grd = np.array([hash(txt) for txt in texts_grd])
                 else:
-                    texts_grd = np.array([COCO_CATEGORIES[idx]['name'] for idx in classes])
+                    texts_grd = np.array(
+                        [COCO_CATEGORIES[idx]["name"] for idx in classes]
+                    )
                     hash_grd = np.array([hash(txt) for txt in texts_grd])
                     unique_hash_grd = np.unique(hash_grd)
                     np.random.shuffle(unique_hash_grd)
                     max_len = min(grounding_len, len(unique_hash_grd))
-                    indices = np.random.permutation(max_len)                    
+                    indices = np.random.permutation(max_len)
                     selected_unique_hash_grd = unique_hash_grd[indices]
                     selected_mask = np.in1d(hash_grd, selected_unique_hash_grd)
                     texts_grd = texts_grd[selected_mask]
                     hash_grd = hash_grd[selected_mask]
                     masks_grd = masks_grd[selected_mask]
-                    texts_grd = [prompt_engineering(text.replace('-other','').replace('-merged','').replace('-stuff',''), topk=10000, suffix='.') \
-                                        for text in texts_grd]
-            groundings = {'masks': masks_grd, 'texts': texts_grd, 'mode': mode, 'hash': hash_grd}
-            dataset_dict["groundings"] = groundings        
+                    texts_grd = [
+                        prompt_engineering(
+                            text.replace("-other", "")
+                            .replace("-merged", "")
+                            .replace("-stuff", ""),
+                            topk=10000,
+                            suffix=".",
+                        )
+                        for text in texts_grd
+                    ]
+            groundings = {
+                "masks": masks_grd,
+                "texts": texts_grd,
+                "mode": mode,
+                "hash": hash_grd,
+            }
+            dataset_dict["groundings"] = groundings
 
         return dataset_dict

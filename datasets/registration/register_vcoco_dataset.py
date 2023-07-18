@@ -9,12 +9,9 @@ from detectron2.data.datasets import load_sem_seg
 _PREDEFINED_SPLITS_VCOCO_CAPTION = {
     "vcoco_train": (
         "v-coco/images/train2014",
-        "v-coco/annotations/trainval_vcoco.json"
+        "v-coco/annotations/trainval_vcoco.json",
     ),
-    "vcoco_val": (
-        "v-coco/images/val2014",
-        "v-coco/annotations/test_vcoco.json"
-    ),
+    "vcoco_val": ("v-coco/images/val2014", "v-coco/annotations/test_vcoco.json"),
 }
 
 
@@ -102,32 +99,32 @@ COCO_CATEGORIES = [
 ]
 
 VCOCO_ACTIONS = [
-    {'id': 1, 'name': 'hold'},
-    {'id': 2, 'name': 'stand'},
-    {'id': 3, 'name': 'sit'},
-    {'id': 4, 'name': 'ride'},
-    {'id': 5, 'name': 'walk'},
-    {'id': 6, 'name': 'look'},
-    {'id': 7, 'name': 'hit'},
-    {'id': 8, 'name': 'eat'},
-    {'id': 9, 'name': 'jump'},
-    {'id': 10, 'name': 'lay'},
-    {'id': 11, 'name': 'talk_on_phone'},
-    {'id': 12, 'name': 'carry'},
-    {'id': 13, 'name': 'throw'},
-    {'id': 14, 'name': 'catch'},
-    {'id': 15, 'name': 'cut'},
-    {'id': 16, 'name': 'run'},
-    {'id': 17, 'name': 'work_on_computer'},
-    {'id': 18, 'name': 'ski'},
-    {'id': 19, 'name': 'surf'},
-    {'id': 20, 'name': 'skateboard'},
-    {'id': 21, 'name': 'smile'},
-    {'id': 22, 'name': 'drink'},
-    {'id': 23, 'name': 'kick'},
-    {'id': 24, 'name': 'point'},
-    {'id': 25, 'name': 'read'},
-    {'id': 26, 'name': 'snowboard'}
+    {"id": 1, "name": "hold"},
+    {"id": 2, "name": "stand"},
+    {"id": 3, "name": "sit"},
+    {"id": 4, "name": "ride"},
+    {"id": 5, "name": "walk"},
+    {"id": 6, "name": "look"},
+    {"id": 7, "name": "hit"},
+    {"id": 8, "name": "eat"},
+    {"id": 9, "name": "jump"},
+    {"id": 10, "name": "lay"},
+    {"id": 11, "name": "talk_on_phone"},
+    {"id": 12, "name": "carry"},
+    {"id": 13, "name": "throw"},
+    {"id": 14, "name": "catch"},
+    {"id": 15, "name": "cut"},
+    {"id": 16, "name": "run"},
+    {"id": 17, "name": "work_on_computer"},
+    {"id": 18, "name": "ski"},
+    {"id": 19, "name": "surf"},
+    {"id": 20, "name": "skateboard"},
+    {"id": 21, "name": "smile"},
+    {"id": 22, "name": "drink"},
+    {"id": 23, "name": "kick"},
+    {"id": 24, "name": "point"},
+    {"id": 25, "name": "read"},
+    {"id": 26, "name": "snowboard"},
 ]
 
 
@@ -135,7 +132,7 @@ def load_vcoco_json(image_root, anno_file):
     json_file = os.path.join(anno_file)
     with open(json_file) as f:
         vcoco_anns = json.load(f)
-    
+
     dataset_dicts = []
     for idx, v in enumerate(vcoco_anns):
         record = {}

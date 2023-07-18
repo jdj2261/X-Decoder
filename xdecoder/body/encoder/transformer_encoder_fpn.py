@@ -13,7 +13,12 @@ import fvcore.nn.weight_init as weight_init
 from detectron2.layers import Conv2d, DeformConv, ShapeSpec, get_norm
 
 from .registry import register_encoder
-from ..transformer_blocks import TransformerEncoder, TransformerEncoderLayer, _get_clones, _get_activation_fn
+from ..transformer_blocks import (
+    TransformerEncoder,
+    TransformerEncoderLayer,
+    _get_clones,
+    _get_activation_fn,
+)
 from ...modules import PositionEmbeddingSine
 from ...utils import configurable
 
@@ -70,7 +75,11 @@ class BasePixelDecoder(nn.Module):
                 output_norm = get_norm(norm, conv_dim)
 
                 lateral_conv = Conv2d(
-                    in_channels, conv_dim, kernel_size=1, bias=use_bias, norm=lateral_norm
+                    in_channels,
+                    conv_dim,
+                    kernel_size=1,
+                    bias=use_bias,
+                    norm=lateral_norm,
                 )
                 output_conv = Conv2d(
                     conv_dim,
@@ -110,14 +119,14 @@ class BasePixelDecoder(nn.Module):
 
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
-        enc_cfg = cfg['MODEL']['ENCODER']
+        enc_cfg = cfg["MODEL"]["ENCODER"]
         ret = {}
         ret["input_shape"] = {
-            k: v for k, v in input_shape.items() if k in enc_cfg['IN_FEATURES']
+            k: v for k, v in input_shape.items() if k in enc_cfg["IN_FEATURES"]
         }
-        ret["conv_dim"] = enc_cfg['CONVS_DIM']
-        ret["mask_dim"] = enc_cfg['MASK_DIM']
-        ret["norm"] = enc_cfg['NORM']
+        ret["conv_dim"] = enc_cfg["CONVS_DIM"]
+        ret["mask_dim"] = enc_cfg["MASK_DIM"]
+        ret["norm"] = enc_cfg["NORM"]
         return ret
 
     def forward_features(self, features):
@@ -138,13 +147,15 @@ class BasePixelDecoder(nn.Module):
             if num_cur_levels < self.maskformer_num_feature_levels:
                 multi_scale_features.append(y)
                 num_cur_levels += 1
-        
+
         mask_features = self.mask_features(y) if self.mask_on else None
         return mask_features, None, multi_scale_features
 
     def forward(self, features, targets=None):
         logger = logging.getLogger(__name__)
-        logger.warning("Calling forward() may cause unpredicted behavior of PixelDecoder module.")
+        logger.warning(
+            "Calling forward() may cause unpredicted behavior of PixelDecoder module."
+        )
         return self.forward_features(features)
 
 
@@ -165,7 +176,9 @@ class TransformerEncoderOnly(nn.Module):
             d_model, nhead, dim_feedforward, dropout, activation, normalize_before
         )
         encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
-        self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)
+        self.encoder = TransformerEncoder(
+            encoder_layer, num_encoder_layers, encoder_norm
+        )
 
         self._reset_parameters()
 
@@ -219,7 +232,13 @@ class TransformerEncoderPixelDecoder(BasePixelDecoder):
             mask_dim: number of output channels for the final conv layer.
             norm (str or callable): normalization for all conv layers
         """
-        super().__init__(input_shape, conv_dim=conv_dim, mask_dim=mask_dim, norm=norm, mask_on=mask_on)
+        super().__init__(
+            input_shape,
+            conv_dim=conv_dim,
+            mask_dim=mask_dim,
+            norm=norm,
+            mask_on=mask_on,
+        )
 
         input_shape = sorted(input_shape.items(), key=lambda x: x[1].stride)
         self.in_features = [k for k, v in input_shape]  # starting from "res2" to "res5"
@@ -260,23 +279,25 @@ class TransformerEncoderPixelDecoder(BasePixelDecoder):
 
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
-        enc_cfg = cfg['MODEL']['ENCODER']
-        dec_cfg = cfg['MODEL']['DECODER']
+        enc_cfg = cfg["MODEL"]["ENCODER"]
+        dec_cfg = cfg["MODEL"]["DECODER"]
 
         ret = super().from_config(cfg, input_shape)
-        ret["transformer_dropout"] = dec_cfg['DROPOUT']
-        ret["transformer_nheads"] = dec_cfg['NHEADS']
-        ret["transformer_dim_feedforward"] = dec_cfg['DIM_FEEDFORWARD']
-        ret["transformer_enc_layers"] = enc_cfg['TRANSFORMER_ENC_LAYERS']  # a separate config
-        ret["transformer_pre_norm"] = dec_cfg['PRE_NORM']
+        ret["transformer_dropout"] = dec_cfg["DROPOUT"]
+        ret["transformer_nheads"] = dec_cfg["NHEADS"]
+        ret["transformer_dim_feedforward"] = dec_cfg["DIM_FEEDFORWARD"]
+        ret["transformer_enc_layers"] = enc_cfg[
+            "TRANSFORMER_ENC_LAYERS"
+        ]  # a separate config
+        ret["transformer_pre_norm"] = dec_cfg["PRE_NORM"]
 
-        ret['mask_on'] = cfg['MODEL']['DECODER']['MASK']
+        ret["mask_on"] = cfg["MODEL"]["DECODER"]["MASK"]
         return ret
 
     def forward_features(self, features):
         multi_scale_features = []
         num_cur_levels = 0
-        
+
         # Reverse feature maps into top-down order (from low to high resolution)
         for idx, f in enumerate(self.in_features[::-1]):
             x = features[f]
@@ -303,9 +324,10 @@ class TransformerEncoderPixelDecoder(BasePixelDecoder):
 
     def forward(self, features, targets=None):
         logger = logging.getLogger(__name__)
-        logger.warning("Calling forward() may cause unpredicted behavior of PixelDecoder module.")
+        logger.warning(
+            "Calling forward() may cause unpredicted behavior of PixelDecoder module."
+        )
         return self.forward_features(features)
-
 
 
 @register_encoder
@@ -313,7 +335,7 @@ def get_transformer_encoder_fpn(cfg, input_shape):
     """
     Build a pixel decoder from `cfg.MODEL.MASK_FORMER.PIXEL_DECODER_NAME`.
     """
-    model = TransformerEncoderPixelDecoder(cfg, input_shape)    
+    model = TransformerEncoderPixelDecoder(cfg, input_shape)
     forward_features = getattr(model, "forward_features", None)
     if not callable(forward_features):
         raise ValueError(

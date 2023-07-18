@@ -22,9 +22,11 @@ NORM_MODULES = [
     torch.nn.LocalResponseNorm,
 ]
 
+
 def register_norm_module(cls):
     NORM_MODULES.append(cls)
     return cls
+
 
 def align_and_update_state_dicts(model_state_dict, ckpt_state_dict):
     model_keys = sorted(model_state_dict.keys())
@@ -40,19 +42,31 @@ def align_and_update_state_dicts(model_state_dict, ckpt_state_dict):
             if model_weight.shape == ckpt_weight.shape:
                 result_dicts[model_key] = ckpt_weight
                 ckpt_keys.pop(ckpt_keys.index(model_key))
-                matched_log.append("Loaded {}, Model Shape: {} <-> Ckpt Shape: {}".format(model_key, model_weight.shape, ckpt_weight.shape))
+                matched_log.append(
+                    "Loaded {}, Model Shape: {} <-> Ckpt Shape: {}".format(
+                        model_key, model_weight.shape, ckpt_weight.shape
+                    )
+                )
             else:
-                unmatched_log.append("*UNMATCHED* {}, Model Shape: {} <-> Ckpt Shape: {}".format(model_key, model_weight.shape, ckpt_weight.shape))
+                unmatched_log.append(
+                    "*UNMATCHED* {}, Model Shape: {} <-> Ckpt Shape: {}".format(
+                        model_key, model_weight.shape, ckpt_weight.shape
+                    )
+                )
         else:
-            unloaded_log.append("*UNLOADED* {}, Model Shape: {}".format(model_key, model_weight.shape))
-            
+            unloaded_log.append(
+                "*UNLOADED* {}, Model Shape: {}".format(model_key, model_weight.shape)
+            )
+
     if is_main_process():
         for info in matched_log:
             logger.info(info)
         for info in unloaded_log:
             logger.warning(info)
         for key in ckpt_keys:
-            logger.warning("$UNUSED$ {}, Ckpt Shape: {}".format(key, ckpt_state_dict[key].shape))
+            logger.warning(
+                "$UNUSED$ {}, Ckpt Shape: {}".format(key, ckpt_state_dict[key].shape)
+            )
         for info in unmatched_log:
             logger.warning(info)
     return result_dicts

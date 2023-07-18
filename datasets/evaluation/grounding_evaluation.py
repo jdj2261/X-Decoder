@@ -37,33 +37,41 @@ class GroundingEvaluator(DatasetEvaluator):
         self.cum_I = 0
         self.cum_U = 0
         self.mIoU = 0
-        self.eval_seg_iou_list = [.5, .6, .7, .8, .9]
-        self.seg_correct = torch.zeros(len(self.eval_seg_iou_list), device=self._cpu_device)
+        self.eval_seg_iou_list = [0.5, 0.6, 0.7, 0.8, 0.9]
+        self.seg_correct = torch.zeros(
+            len(self.eval_seg_iou_list), device=self._cpu_device
+        )
         self.seg_total = 0
         if self._compute_box:
             self.mIoU_box = 0
-            self.seg_correct_box = torch.zeros(len(self.eval_seg_iou_list), device=self._cpu_device)
+            self.seg_correct_box = torch.zeros(
+                len(self.eval_seg_iou_list), device=self._cpu_device
+            )
 
     @staticmethod
     def computeIoU(pred_seg, gd_seg):
-        I = (pred_seg & gd_seg)
-        U = (pred_seg | gd_seg)
+        I = pred_seg & gd_seg
+        U = pred_seg | gd_seg
         return I, U
 
     def process(self, inputs, outputs):
         for input, output in zip(inputs, outputs):
-            pred = output['grounding_mask'].sigmoid() > 0.5
-            gt = input['groundings']['masks'].bool()
+            pred = output["grounding_mask"].sigmoid() > 0.5
+            gt = input["groundings"]["masks"].bool()
             bsi = len(pred)
             I, U = self.computeIoU(pred, gt)
             self.cum_I += I.sum().cpu()
             self.cum_U += U.sum().cpu()
-            IoU = I.reshape(bsi,-1).sum(-1)*1.0 / U.reshape(bsi,-1).sum(-1)
+            IoU = I.reshape(bsi, -1).sum(-1) * 1.0 / U.reshape(bsi, -1).sum(-1)
             self.mIoU += IoU.sum().cpu()
 
             if self._compute_box:
-                pred_box = BoxMode.convert(output['grounding_box'], BoxMode.XYWH_ABS, BoxMode.XYXY_ABS)
-                gt_box = BoxMode.convert(input['groundings']['boxes'], BoxMode.XYWH_ABS, BoxMode.XYXY_ABS).cpu()
+                pred_box = BoxMode.convert(
+                    output["grounding_box"], BoxMode.XYWH_ABS, BoxMode.XYXY_ABS
+                )
+                gt_box = BoxMode.convert(
+                    input["groundings"]["boxes"], BoxMode.XYWH_ABS, BoxMode.XYXY_ABS
+                ).cpu()
                 IoU_box = box_iou(pred_box, gt_box).diagonal()
                 self.mIoU_box += IoU_box.sum()
 
@@ -85,22 +93,26 @@ class GroundingEvaluator(DatasetEvaluator):
 
             if self._compute_box:
                 self.mIoU_box = torch.stack(all_gather(self.mIoU_box)).sum()
-                self.seg_correct_box = torch.stack(all_gather(self.seg_correct_box)).sum(0)
+                self.seg_correct_box = torch.stack(
+                    all_gather(self.seg_correct_box)
+                ).sum(0)
             if not is_main_process():
                 return
 
         results = {}
         for idx in range(len(self.eval_seg_iou_list)):
-            result_str = 'precision@{}'.format(self.eval_seg_iou_list[idx])
-            results[result_str] = (self.seg_correct[idx]*100 / self.seg_total).item()
-        results['cIoU'] = (self.cum_I*100./self.cum_U).item()
-        results['mIoU'] = (self.mIoU*100./self.seg_total).item()
+            result_str = "precision@{}".format(self.eval_seg_iou_list[idx])
+            results[result_str] = (self.seg_correct[idx] * 100 / self.seg_total).item()
+        results["cIoU"] = (self.cum_I * 100.0 / self.cum_U).item()
+        results["mIoU"] = (self.mIoU * 100.0 / self.seg_total).item()
 
         if self._compute_box:
             for idx in range(len(self.eval_seg_iou_list)):
-                result_str = 'precisionB@{}'.format(self.eval_seg_iou_list[idx])
-                results[result_str] = (self.seg_correct_box[idx]*100 / self.seg_total).item()
-            results['mBIoU'] = (self.mIoU_box*100./self.seg_total).item()
+                result_str = "precisionB@{}".format(self.eval_seg_iou_list[idx])
+                results[result_str] = (
+                    self.seg_correct_box[idx] * 100 / self.seg_total
+                ).item()
+            results["mBIoU"] = (self.mIoU_box * 100.0 / self.seg_total).item()
 
         self._logger.info(results)
-        return {'grounding': results}
+        return {"grounding": results}

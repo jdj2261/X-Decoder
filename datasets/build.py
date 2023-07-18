@@ -42,36 +42,39 @@ from .dataset_mappers import (
     BDDSemDatasetMapper,
     ScanNetPanoDatasetMapper,
     RefCOCODatasetMapper,
-    VCOCODatasetMapper
+    VCOCODatasetMapper,
 )
 
-from .evaluation import (InstanceSegEvaluator, 
-                         ClassificationEvaluator, 
-                         SemSegEvaluator, 
-                         RetrievalEvaluator, 
-                         CaptioningEvaluator, 
-                         COCOPanopticEvaluator,
-                         GroundingEvaluator,
+from .evaluation import (
+    InstanceSegEvaluator,
+    ClassificationEvaluator,
+    SemSegEvaluator,
+    RetrievalEvaluator,
+    CaptioningEvaluator,
+    COCOPanopticEvaluator,
+    GroundingEvaluator,
 )
 from xdecoder.utils import configurable
 from utils.distributed import get_world_size
+
 
 class JointLoader(torchdata.IterableDataset):
     def __init__(self, loaders, key_dataset):
         dataset_names = []
         for key, loader in loaders.items():
-            name = "{}".format(key.split('_')[0])
+            name = "{}".format(key.split("_")[0])
             setattr(self, name, loader)
             dataset_names += [name]
         self.dataset_names = dataset_names
         self.key_dataset = key_dataset
-    
+
     def __iter__(self):
         for batch in zip(*[getattr(self, name) for name in self.dataset_names]):
             yield {key: batch[i] for i, key in enumerate(self.dataset_names)}
 
     def __len__(self):
         return len(getattr(self, self.key_dataset))
+
 
 def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     """
@@ -109,9 +112,7 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     return dataset_dicts
 
 
-def get_detection_dataset_dicts(
-    dataset_names, filter_empty=True, proposal_files=None
-):
+def get_detection_dataset_dicts(dataset_names, filter_empty=True, proposal_files=None):
     """
     Load and prepare dataset dicts for instance detection/segmentation and semantic segmentation.
 
@@ -127,7 +128,7 @@ def get_detection_dataset_dicts(
     if isinstance(dataset_names, str):
         dataset_names = [dataset_names]
     assert len(dataset_names)
-    
+
     dataset_dicts = [DatasetCatalog.get(dataset_name) for dataset_name in dataset_names]
     for dataset_name, dicts in zip(dataset_names, dataset_dicts):
         assert len(dicts), "Dataset '{}' is empty!".format(dataset_name)
@@ -144,9 +145,13 @@ def get_detection_dataset_dicts(
 
     has_instances = "annotations" in dataset_dicts[0]
     if filter_empty and has_instances:
-        dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names)
+        dataset_dicts = filter_images_with_only_crowd_annotations(
+            dataset_dicts, dataset_names
+        )
 
-    assert len(dataset_dicts), "No valid data found in {}.".format(",".join(dataset_names))
+    assert len(dataset_dicts), "No valid data found in {}.".format(
+        ",".join(dataset_names)
+    )
     return dataset_dicts
 
 
@@ -154,7 +159,7 @@ def get_hoi_dataset_dicts(dataset_names, filter_empty=True, proposal_files=None)
     if isinstance(dataset_names, str):
         dataset_names = [dataset_names]
     assert len(dataset_names)
-    
+
     dataset_dicts = [DatasetCatalog.get(dataset_name) for dataset_name in dataset_names]
     for dataset_name, dicts in zip(dataset_names, dataset_dicts):
         assert len(dicts), "Dataset '{}' is empty!".format(dataset_name)
@@ -171,9 +176,13 @@ def get_hoi_dataset_dicts(dataset_names, filter_empty=True, proposal_files=None)
 
     has_instances = "annotations" in dataset_dicts[0]
     if filter_empty and has_instances:
-        dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names)
+        dataset_dicts = filter_images_with_only_crowd_annotations(
+            dataset_dicts, dataset_names
+        )
 
-    assert len(dataset_dicts), "No valid data found in {}.".format(",".join(dataset_names))
+    assert len(dataset_dicts), "No valid data found in {}.".format(
+        ",".join(dataset_names)
+    )
     return dataset_dicts
 
 
@@ -191,15 +200,19 @@ def _test_loader_from_config(cfg, dataset_name, mapper=None):
         proposal_files=None,
     )
     if mapper is None:
-        mapper_cfg = CfgNode({'INPUT': cfg['INPUT'], 'MODEL': cfg['MODEL'], 'DATASETS': cfg['DATASETS']})
+        mapper_cfg = CfgNode(
+            {"INPUT": cfg["INPUT"], "MODEL": cfg["MODEL"], "DATASETS": cfg["DATASETS"]}
+        )
         mapper = DatasetMapper(mapper_cfg, False)
-    assert cfg['TEST']['BATCH_SIZE_TOTAL'] % get_world_size() == 0, "Evaluation total batchsize is not divisible by gpu number"
-    batch_size = cfg['TEST']['BATCH_SIZE_TOTAL'] // get_world_size()
+    assert (
+        cfg["TEST"]["BATCH_SIZE_TOTAL"] % get_world_size() == 0
+    ), "Evaluation total batchsize is not divisible by gpu number"
+    batch_size = cfg["TEST"]["BATCH_SIZE_TOTAL"] // get_world_size()
 
     return {
         "dataset": dataset,
         "mapper": mapper,
-        "num_workers": cfg['DATALOADER']['NUM_WORKERS'],
+        "num_workers": cfg["DATALOADER"]["NUM_WORKERS"],
         "sampler": InferenceSampler(len(dataset)),
         "batch_size": batch_size,
     }
@@ -281,7 +294,6 @@ def build_hoi_test_loader(
     num_workers: int = 0,
     collate_fn: Optional[Callable[[List[Any]], Any]] = None,
 ) -> torchdata.DataLoader:
-
     if isinstance(dataset, list):
         dataset = DatasetFromList(dataset, copy=False)
     if mapper is not None:
@@ -300,22 +312,25 @@ def build_hoi_test_loader(
         collate_fn=trivial_batch_collator if collate_fn is None else collate_fn,
     )
 
+
 def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sampler=None):
-    cfg_datasets = cfg['DATASETS']
-    cfg_dataloader = cfg['DATALOADER']
-    
+    cfg_datasets = cfg["DATASETS"]
+    cfg_dataloader = cfg["DATALOADER"]
+
     if dataset is None:
         dataset = get_hoi_dataset_dicts(
             dataset_name,
-            filter_empty=cfg_dataloader['FILTER_EMPTY_ANNOTATIONS'],
-            proposal_files=cfg_datasets['PROPOSAL_FILES_TRAIN'] if cfg_dataloader['LOAD_PROPOSALS'] else None,
+            filter_empty=cfg_dataloader["FILTER_EMPTY_ANNOTATIONS"],
+            proposal_files=cfg_datasets["PROPOSAL_FILES_TRAIN"]
+            if cfg_dataloader["LOAD_PROPOSALS"]
+            else None,
         )
 
     if mapper is None:
         mapper = DatasetMapper(cfg, True)
 
     if sampler is None:
-        sampler_name = cfg_dataloader['SAMPLER_TRAIN']
+        sampler_name = cfg_dataloader["SAMPLER_TRAIN"]
         logger = logging.getLogger(__name__)
         logger.info("Using training sampler {}".format(sampler_name))
         sampler = TrainingSampler(len(dataset))
@@ -324,15 +339,21 @@ def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sample
         "dataset": dataset,
         "sampler": sampler,
         "mapper": mapper,
-        "total_batch_size": cfg['TRAIN']['BATCH_SIZE_TOTAL'],
-        "aspect_ratio_grouping": cfg_dataloader['ASPECT_RATIO_GROUPING'],
-        "num_workers": cfg_dataloader['NUM_WORKERS'],
+        "total_batch_size": cfg["TRAIN"]["BATCH_SIZE_TOTAL"],
+        "aspect_ratio_grouping": cfg_dataloader["ASPECT_RATIO_GROUPING"],
+        "num_workers": cfg_dataloader["NUM_WORKERS"],
     }
 
 
 @configurable(from_config=_train_loader_from_config)
 def build_detection_train_loader(
-    dataset, *, mapper, sampler=None, total_batch_size, aspect_ratio_grouping=True, num_workers=0
+    dataset,
+    *,
+    mapper,
+    sampler=None,
+    total_batch_size,
+    aspect_ratio_grouping=True,
+    num_workers=0,
 ):
     """
     Build a dataloader for object detection with some default features.
@@ -379,7 +400,13 @@ def build_detection_train_loader(
 
 @configurable(from_config=_train_loader_from_config)
 def build_hoi_train_loader(
-    dataset, *, mapper, sampler=None, total_batch_size, aspect_ratio_grouping=True, num_workers=0
+    dataset,
+    *,
+    mapper,
+    sampler=None,
+    total_batch_size,
+    aspect_ratio_grouping=True,
+    num_workers=0,
 ):
     if isinstance(dataset, list):
         dataset = DatasetFromList(dataset, copy=False)
@@ -396,123 +423,158 @@ def build_hoi_train_loader(
         num_workers=num_workers,
     )
 
+
 def get_config_from_name(cfg, dataset_name):
     # adjust config according to dataset
-    if 'refcoco' in dataset_name:
-        cfg.update(cfg['REF'])
+    if "refcoco" in dataset_name:
+        cfg.update(cfg["REF"])
         return cfg
-    elif 'vcoco' in dataset_name:
-        cfg.update(cfg['VCOCO'])
+    elif "vcoco" in dataset_name:
+        cfg.update(cfg["VCOCO"])
         return cfg
-    elif 'coco' in dataset_name:
-        if 'COCO' in cfg.keys():
-            cfg.update(cfg['COCO'])
+    elif "coco" in dataset_name:
+        if "COCO" in cfg.keys():
+            cfg.update(cfg["COCO"])
         return cfg
-    elif 'ade' in dataset_name:
-        if 'ADE20K' in cfg.keys():
-            cfg.update(cfg['ADE20K'])
+    elif "ade" in dataset_name:
+        if "ADE20K" in cfg.keys():
+            cfg.update(cfg["ADE20K"])
         return cfg
-    elif 'imagenet' in dataset_name:
-        if 'IMAGENET' in cfg.keys():
-            cfg.update(cfg['IMAGENET'])
+    elif "imagenet" in dataset_name:
+        if "IMAGENET" in cfg.keys():
+            cfg.update(cfg["IMAGENET"])
         return cfg
-    elif 'vlp' in dataset_name:
-        cfg.update(cfg['VLP'])
+    elif "vlp" in dataset_name:
+        cfg.update(cfg["VLP"])
         return cfg
-    elif 'sun' in dataset_name:
-        cfg.update(cfg['SUN'])
+    elif "sun" in dataset_name:
+        cfg.update(cfg["SUN"])
         return cfg
-    elif 'scan' in dataset_name:
-        cfg.update(cfg['SCAN'])
+    elif "scan" in dataset_name:
+        cfg.update(cfg["SCAN"])
         return cfg
-    elif 'cityscape' in dataset_name:
-        cfg.update(cfg['CITY'])
+    elif "cityscape" in dataset_name:
+        cfg.update(cfg["CITY"])
         return cfg
-    elif 'bdd' in dataset_name:
-        cfg.update(cfg['BDD'])
+    elif "bdd" in dataset_name:
+        cfg.update(cfg["BDD"])
         return cfg
     else:
         assert False, "dataset not support."
 
 
-def build_eval_dataloader(cfg, ):
+def build_eval_dataloader(
+    cfg,
+):
     dataloaders = []
-    for dataset_name in cfg['DATASETS']['TEST']:
+    for dataset_name in cfg["DATASETS"]["TEST"]:
         cfg = get_config_from_name(cfg, dataset_name)
         # adjust mapper according to dataset
-        if dataset_name == 'imagenet_val':
+        if dataset_name == "imagenet_val":
             mapper = ImageNetDatasetMapper(cfg, False)
-        elif dataset_name == 'bdd10k_val_sem_seg':
+        elif dataset_name == "bdd10k_val_sem_seg":
             mapper = BDDSemDatasetMapper(cfg, False)
-        elif dataset_name in ["vlp_val", "vlp_captioning_val", "vlp_val2017", "vlp_captioning_val2017"]:
+        elif dataset_name in [
+            "vlp_val",
+            "vlp_captioning_val",
+            "vlp_val2017",
+            "vlp_captioning_val2017",
+        ]:
             mapper = VLPreDatasetMapper(cfg, False, dataset_name)
-        elif dataset_name in ["scannet_21_val_seg", "scannet_38_val_seg", "scannet_41_val_seg"]:
+        elif dataset_name in [
+            "scannet_21_val_seg",
+            "scannet_38_val_seg",
+            "scannet_41_val_seg",
+        ]:
             mapper = ScanNetSegDatasetMapper(cfg, False)
-        elif dataset_name in ["scannet_21_panoptic_val", 'bdd10k_40_panoptic_val']:
+        elif dataset_name in ["scannet_21_panoptic_val", "bdd10k_40_panoptic_val"]:
             mapper = ScanNetPanoDatasetMapper(cfg, False)
-        elif 'sun' in dataset_name:
+        elif "sun" in dataset_name:
             mapper = SunRGBDSegDatasetMapper(cfg, False)
-        elif 'refcoco' in dataset_name:
+        elif "refcoco" in dataset_name:
             mapper = RefCOCODatasetMapper(cfg, False)
         else:
             mapper = None
 
-        if 'vcoco' in dataset_name:
+        if "vcoco" in dataset_name:
             mapper = VCOCODatasetMapper(cfg, False)
             dataloaders += [build_hoi_test_loader(cfg, dataset_name, mapper=mapper)]
         else:
-            dataloaders += [build_detection_test_loader(cfg, dataset_name, mapper=mapper)]
+            dataloaders += [
+                build_detection_test_loader(cfg, dataset_name, mapper=mapper)
+            ]
 
     return dataloaders
 
 
-def build_train_dataloader(cfg, ):
-    dataset_names = cfg['DATASETS']['TRAIN']
+def build_train_dataloader(
+    cfg,
+):
+    dataset_names = cfg["DATASETS"]["TRAIN"]
     loaders = {}
     for dataset_name in dataset_names:
         cfg = get_config_from_name(cfg, dataset_name)
-        mapper_name = cfg['INPUT']['DATASET_MAPPER_NAME']
+        mapper_name = cfg["INPUT"]["DATASET_MAPPER_NAME"]
         # Semantic segmentation dataset mapper
         if mapper_name == "mask_former_semantic":
             mapper = MaskFormerSemanticDatasetMapper(cfg, True)
-            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["coco"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         # Panoptic segmentation dataset mapper
         elif mapper_name == "mask_former_panoptic":
             mapper = MaskFormerPanopticDatasetMapper(cfg, True)
-            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["coco"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         # Instance segmentation dataset mapper
         elif mapper_name == "mask_former_instance":
             mapper = MaskFormerInstanceDatasetMapper(cfg, True)
-            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["coco"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         # coco instance segmentation lsj new baseline
         elif mapper_name == "coco_instance_lsj":
             mapper = COCOInstanceNewBaselineDatasetMapper(cfg, True)
-            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["coco"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         # coco panoptic segmentation lsj new baseline
         elif mapper_name == "coco_panoptic_lsj":
             mapper = COCOPanopticNewBaselineDatasetMapper(cfg, True)
-            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["coco"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         elif mapper_name == "vlpretrain":
             mapper = VLPreDatasetMapper(cfg, True, dataset_name)
-            loaders['vlp'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["vlp"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         elif mapper_name == "refcoco":
             mapper = RefCOCODatasetMapper(cfg, True)
-            loaders['ref'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
+            loaders["ref"] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
         elif mapper_name == "vcoco":
             mapper = VCOCODatasetMapper(cfg, True)
-            loaders[dataset_name] = build_hoi_train_loader(cfg, dataset_name, mapper=mapper)
+            loaders[dataset_name] = build_hoi_train_loader(
+                cfg, dataset_name, mapper=mapper
+            )
         else:
             mapper = None
-            loaders[dataset_name] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
-
+            loaders[dataset_name] = build_detection_train_loader(
+                cfg, dataset_name=dataset_name, mapper=mapper
+            )
 
     # if len(loaders) == 1 and not cfg['LOADER'].get('JOINT', False):
     if len(loaders) == 1:
         return list(loaders.values())[0]
     else:
-        return JointLoader(loaders, key_dataset=cfg['LOADER'].get('KEY_DATASET', 'coco'))
+        return JointLoader(
+            loaders, key_dataset=cfg["LOADER"].get("KEY_DATASET", "coco")
+        )
 
-    
+
 def build_evaluator(cfg, dataset_name, output_folder=None):
     """
     Create evaluator(s) for a given dataset.
@@ -538,7 +600,7 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
     # instance segmentation
     if evaluator_type == "coco":
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
-    
+
     cfg_model_decoder_test = cfg["MODEL"]["DECODER"]["TEST"]
     # panoptic segmentation
     if evaluator_type in [
@@ -547,20 +609,36 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
         "cityscapes_panoptic_seg",
         "mapillary_vistas_panoptic_seg",
         "scannet_panoptic_seg",
-        "bdd_panoptic_pano"
+        "bdd_panoptic_pano",
     ]:
         if cfg_model_decoder_test["PANOPTIC_ON"]:
             evaluator_list.append(COCOPanopticEvaluator(dataset_name, output_folder))
     # COCO
-    if (evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["INSTANCE_ON"]) or evaluator_type == "object365_od":
+    if (
+        evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["INSTANCE_ON"]
+    ) or evaluator_type == "object365_od":
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
-    if (evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["SEMANTIC_ON"]) or evaluator_type == "coco_sem_seg":
-        evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
+    if (
+        evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["SEMANTIC_ON"]
+    ) or evaluator_type == "coco_sem_seg":
+        evaluator_list.append(
+            SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
+        )
     # Mapillary Vistas
-    if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg_model_decoder_test["INSTANCE_ON"]:
-        evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
-    if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg_model_decoder_test["SEMANTIC_ON"]:
-        evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
+    if (
+        evaluator_type == "mapillary_vistas_panoptic_seg"
+        and cfg_model_decoder_test["INSTANCE_ON"]
+    ):
+        evaluator_list.append(
+            InstanceSegEvaluator(dataset_name, output_dir=output_folder)
+        )
+    if (
+        evaluator_type == "mapillary_vistas_panoptic_seg"
+        and cfg_model_decoder_test["SEMANTIC_ON"]
+    ):
+        evaluator_list.append(
+            SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
+        )
     # Cityscapes
     if evaluator_type == "cityscapes_instance":
         assert (
@@ -584,11 +662,18 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
             ), "CityscapesEvaluator currently do not work with multiple machines."
             evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
     # ADE20K
-    if evaluator_type == "ade20k_panoptic_seg" and cfg_model_decoder_test["INSTANCE_ON"]:
-        evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
+    if (
+        evaluator_type == "ade20k_panoptic_seg"
+        and cfg_model_decoder_test["INSTANCE_ON"]
+    ):
+        evaluator_list.append(
+            InstanceSegEvaluator(dataset_name, output_dir=output_folder)
+        )
     # SEGINW
     if evaluator_type == "seginw" and cfg_model_decoder_test["INSTANCE_ON"]:
-        evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
+        evaluator_list.append(
+            InstanceSegEvaluator(dataset_name, output_dir=output_folder)
+        )
     # LVIS
     if evaluator_type == "lvis":
         return LVISEvaluator(dataset_name, output_dir=output_folder)
@@ -597,9 +682,19 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
         evaluator_list.append(ClassificationEvaluator(dataset_name, output_folder))
     # Retrieval
     if evaluator_type == "retrieval":
-        evaluator_list.append(RetrievalEvaluator(dataset_name, output_folder, cfg['MODEL']['DECODER']['RETRIEVAL']['ENSEMBLE']))
+        evaluator_list.append(
+            RetrievalEvaluator(
+                dataset_name,
+                output_folder,
+                cfg["MODEL"]["DECODER"]["RETRIEVAL"]["ENSEMBLE"],
+            )
+        )
     if evaluator_type == "captioning":
-        evaluator_list.append(CaptioningEvaluator(dataset_name, output_folder, MetadataCatalog.get(dataset_name).gt_json))
+        evaluator_list.append(
+            CaptioningEvaluator(
+                dataset_name, output_folder, MetadataCatalog.get(dataset_name).gt_json
+            )
+        )
     if evaluator_type in ["grounding_refcoco", "grounding_phrasecut"]:
         evaluator_list.append(GroundingEvaluator(dataset_name))
 
@@ -611,6 +706,5 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
         )
     elif len(evaluator_list) == 1:
         return evaluator_list[0]
-        
-    
+
     return DatasetEvaluators(evaluator_list)

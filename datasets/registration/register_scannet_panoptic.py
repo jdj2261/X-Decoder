@@ -40,6 +40,7 @@ MetadataCatalog.get("scannet20_pano_val").set(
     stuff_colors=SCANNET_COLORS[:],
 )
 
+
 def load_scannet_panoptic_json(json_file, image_dir, gt_dir, meta):
     """
     Args:
@@ -74,10 +75,10 @@ def load_scannet_panoptic_json(json_file, image_dir, gt_dir, meta):
         # different extension, and images have extension ".jpg" for COCO. Need
         # to make image extension a user-provided argument if we extend this
         # function to support other COCO-like datasets.
-        folder_name = ann['file_name'].split('__')[0]
-        file_name = ann['file_name'].split('__')[1].replace('png', 'jpg')
+        folder_name = ann["file_name"].split("__")[0]
+        file_name = ann["file_name"].split("__")[1].replace("png", "jpg")
 
-        image_file = os.path.join(image_dir, folder_name, 'color', file_name)
+        image_file = os.path.join(image_dir, folder_name, "color", file_name)
         label_file = os.path.join(gt_dir, ann["file_name"])
 
         segments_info = [_convert_category_id(x, meta) for x in ann["segments_info"]]
@@ -96,7 +97,11 @@ def load_scannet_panoptic_json(json_file, image_dir, gt_dir, meta):
 
 
 def register_scannet_panoptic(
-    name, metadata, image_root, panoptic_root, panoptic_json,
+    name,
+    metadata,
+    image_root,
+    panoptic_root,
+    panoptic_json,
 ):
     """
     Register a "standard" version of ADE20k panoptic segmentation dataset named `name`.

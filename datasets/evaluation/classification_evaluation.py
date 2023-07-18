@@ -34,6 +34,7 @@ def accuracy(output, target, topk=(1,)):
         res.append(correct_k.mul_(100.0 / batch_size).item())
     return res
 
+
 class ClassificationEvaluator(DatasetEvaluator):
     def __init__(self, *args):
         self.top1 = AverageMeter()
@@ -45,8 +46,8 @@ class ClassificationEvaluator(DatasetEvaluator):
         self.top5.reset()
 
     def process(self, inputs, outputs):
-        logits = torch.stack([o['pred_class'] for o in outputs])
-        y = torch.tensor([t['class_id'] for t in inputs], device=logits.device)
+        logits = torch.stack([o["pred_class"] for o in outputs])
+        y = torch.tensor([t["class_id"] for t in inputs], device=logits.device)
         prec1, prec5 = accuracy(logits, y, (1, 5))
         self.top1.update(prec1, y.size(0))
         self.top5.update(prec5, y.size(0))
@@ -55,11 +56,9 @@ class ClassificationEvaluator(DatasetEvaluator):
         if get_world_size() > 1:
             tmp_tensor = torch.tensor(
                 [self.top1.sum, self.top5.sum, self.top1.count],
-                device=torch.cuda.current_device()
+                device=torch.cuda.current_device(),
             )
-            torch.distributed.all_reduce(
-                tmp_tensor, torch.distributed.ReduceOp.SUM
-            )
+            torch.distributed.all_reduce(tmp_tensor, torch.distributed.ReduceOp.SUM)
             top1_sum, top5_sum, count = tmp_tensor.tolist()
         else:
             top1_sum = self.top1.sum
@@ -67,10 +66,7 @@ class ClassificationEvaluator(DatasetEvaluator):
             count = self.top1.count
 
         results = {}
-        scores = {
-            'top1': top1_sum / count,
-            "top5": top5_sum / count
-        }
-        results['class'] = scores
+        scores = {"top1": top1_sum / count, "top5": top5_sum / count}
+        results["class"] = scores
         self._logger.info(results)
         return results

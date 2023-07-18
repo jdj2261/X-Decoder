@@ -26,7 +26,6 @@ st = LancasterStemmer()
 
 
 class GeneralizedXdecoder(nn.Module):
-
     @configurable
     def __init__(
         self,
@@ -93,7 +92,9 @@ class GeneralizedXdecoder(nn.Module):
             size_divisibility = self.backbone.size_divisibility
         self.size_divisibility = size_divisibility
         self.sem_seg_postprocess_before_inference = sem_seg_postprocess_before_inference
-        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
+        self.register_buffer(
+            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
+        )
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
         # additional args
@@ -110,17 +111,17 @@ class GeneralizedXdecoder(nn.Module):
 
         self.retrieval_emsemble = retrieval_emsemble
         # backbone itc loss
-        if task_switch['retrieval'] and retrieval_emsemble:
+        if task_switch["retrieval"] and retrieval_emsemble:
             self.backbone_proj = nn.Parameter(torch.empty(backbone_dim, dim_proj))
-            trunc_normal_(self.backbone_proj, std=.02)
+            trunc_normal_(self.backbone_proj, std=0.02)
 
         if not self.semantic_on:
             assert self.sem_seg_postprocess_before_inference
 
     @classmethod
     def from_config(cls, cfg):
-        enc_cfg = cfg['MODEL']['ENCODER']
-        dec_cfg = cfg['MODEL']['DECODER']
+        enc_cfg = cfg["MODEL"]["ENCODER"]
+        dec_cfg = cfg["MODEL"]["DECODER"]
 
         # TODO: Training config to be release
         no_object_weight = None
@@ -134,48 +135,51 @@ class GeneralizedXdecoder(nn.Module):
         losses = None
 
         # loss weights, switcher for task, and top layers to compute loss
-        task_switch = {'bbox': dec_cfg.get('DETECTION', False),
-                       'mask': dec_cfg.get('MASK', True),
-                       'caption': dec_cfg['CAPTION'].get('ENABLED', False),
-                       'captioning': dec_cfg['CAPTIONING'].get('ENABLED', False),
-                       'retrieval': dec_cfg['RETRIEVAL'].get('ENABLED', False),
-                       'grounding': dec_cfg['GROUNDING'].get('ENABLED', False)}
+        task_switch = {
+            "bbox": dec_cfg.get("DETECTION", False),
+            "mask": dec_cfg.get("MASK", True),
+            "caption": dec_cfg["CAPTION"].get("ENABLED", False),
+            "captioning": dec_cfg["CAPTIONING"].get("ENABLED", False),
+            "retrieval": dec_cfg["RETRIEVAL"].get("ENABLED", False),
+            "grounding": dec_cfg["GROUNDING"].get("ENABLED", False),
+        }
 
         # build model
-        extra = {'task_switch': task_switch}
+        extra = {"task_switch": task_switch}
         backbone = build_backbone(cfg)
-        lang_encoder = build_language_encoder(cfg)        
-        sem_seg_head = build_xdecoder_head(cfg, backbone.output_shape(), lang_encoder, extra)
-
+        lang_encoder = build_language_encoder(cfg)
+        sem_seg_head = build_xdecoder_head(
+            cfg, backbone.output_shape(), lang_encoder, extra
+        )
 
         return {
             "backbone": backbone,
             "sem_seg_head": sem_seg_head,
             "criterion": criterion,
             "losses": losses,
-            "num_queries": dec_cfg['NUM_OBJECT_QUERIES'],
-            "object_mask_threshold": dec_cfg['TEST']['OBJECT_MASK_THRESHOLD'],
-            "overlap_threshold": dec_cfg['TEST']['OVERLAP_THRESHOLD'],
+            "num_queries": dec_cfg["NUM_OBJECT_QUERIES"],
+            "object_mask_threshold": dec_cfg["TEST"]["OBJECT_MASK_THRESHOLD"],
+            "overlap_threshold": dec_cfg["TEST"]["OVERLAP_THRESHOLD"],
             "metadata": None,
-            "size_divisibility": dec_cfg['SIZE_DIVISIBILITY'],
+            "size_divisibility": dec_cfg["SIZE_DIVISIBILITY"],
             "sem_seg_postprocess_before_inference": (
-                dec_cfg['TEST']['SEM_SEG_POSTPROCESSING_BEFORE_INFERENCE']
-                or dec_cfg['TEST']['PANOPTIC_ON']
-                or dec_cfg['TEST']['INSTANCE_ON']
+                dec_cfg["TEST"]["SEM_SEG_POSTPROCESSING_BEFORE_INFERENCE"]
+                or dec_cfg["TEST"]["PANOPTIC_ON"]
+                or dec_cfg["TEST"]["INSTANCE_ON"]
             ),
-            "pixel_mean": cfg['INPUT']['PIXEL_MEAN'],
-            "pixel_std": cfg['INPUT']['PIXEL_STD'],
+            "pixel_mean": cfg["INPUT"]["PIXEL_MEAN"],
+            "pixel_std": cfg["INPUT"]["PIXEL_STD"],
             "task_switch": task_switch,
             "phrase_prob": phrase_prob,
             # inference
-            "semantic_on": dec_cfg['TEST']['SEMANTIC_ON'],
-            "instance_on": dec_cfg['TEST']['INSTANCE_ON'],
-            "panoptic_on": dec_cfg['TEST']['PANOPTIC_ON'],
-            "test_topk_per_image": cfg['COCO']['TEST']['DETECTIONS_PER_IMAGE'],
+            "semantic_on": dec_cfg["TEST"]["SEMANTIC_ON"],
+            "instance_on": dec_cfg["TEST"]["INSTANCE_ON"],
+            "panoptic_on": dec_cfg["TEST"]["PANOPTIC_ON"],
+            "test_topk_per_image": cfg["COCO"]["TEST"]["DETECTIONS_PER_IMAGE"],
             "train_dataset_name": train_dataset_name,
-            "retrieval_emsemble": dec_cfg['RETRIEVAL']['ENSEMBLE'],
-            "backbone_dim": cfg['MODEL']['BACKBONE_DIM'],
-            "dim_proj": cfg['MODEL']['DIM_PROJ'],
+            "retrieval_emsemble": dec_cfg["RETRIEVAL"]["ENSEMBLE"],
+            "backbone_dim": cfg["MODEL"]["BACKBONE_DIM"],
+            "dim_proj": cfg["MODEL"]["DIM_PROJ"],
         }
 
     @property
@@ -211,13 +215,13 @@ class GeneralizedXdecoder(nn.Module):
         if self.training:
             assert False, "Currently not support training X-Decoder"
         else:
-            if mode == 'retrieval':
+            if mode == "retrieval":
                 return self.evaluate_retrieval(batched_inputs)
-            elif mode == 'captioning':
+            elif mode == "captioning":
                 return self.evaluate_captioning(batched_inputs)
-            elif mode == 'classification':
+            elif mode == "classification":
                 return self.evaluate_classification(batched_inputs)
-            elif mode == 'grounding_refcoco':
+            elif mode == "grounding_refcoco":
                 return self.evaluate_grounding(batched_inputs, mode)
             else:
                 return self.evaluate(batched_inputs)
@@ -225,7 +229,7 @@ class GeneralizedXdecoder(nn.Module):
     def evaluate(self, batched_inputs):
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        
+
         images = ImageList.from_tensors(images, self.size_divisibility)
         img_bs = images.tensor.shape[0]
 
@@ -235,8 +239,16 @@ class GeneralizedXdecoder(nn.Module):
 
         mask_cls_results = outputs["pred_logits"]
         mask_pred_results = outputs["pred_masks"]
-        box_pred_results = outputs["pred_boxes"] if self.task_switch['bbox'] else [None for i in range(len(mask_pred_results))]
-        caption_pred_results = outputs["pred_captions"] if self.task_switch['caption'] else [None for i in range(len(mask_pred_results))]
+        box_pred_results = (
+            outputs["pred_boxes"]
+            if self.task_switch["bbox"]
+            else [None for i in range(len(mask_pred_results))]
+        )
+        caption_pred_results = (
+            outputs["pred_captions"]
+            if self.task_switch["caption"]
+            else [None for i in range(len(mask_pred_results))]
+        )
 
         # upsample masks
         mask_pred_results = F.interpolate(
@@ -244,16 +256,32 @@ class GeneralizedXdecoder(nn.Module):
             size=(images.tensor.shape[-2], images.tensor.shape[-1]),
             mode="bicubic",
             align_corners=False,
-            antialias=True
+            antialias=True,
         )
 
         input_size = mask_pred_results.shape[-2:]
-        keep_sem_bgd = self.metadata.keep_sem_bgd if hasattr(self.metadata, 'keep_sem_bgd') else False
+        keep_sem_bgd = (
+            self.metadata.keep_sem_bgd
+            if hasattr(self.metadata, "keep_sem_bgd")
+            else False
+        )
         del outputs
 
         processed_results = []
-        for mask_cls_result, mask_pred_result, box_pred_result, caption_pred_result, input_per_image, image_size in zip(
-            mask_cls_results, mask_pred_results, box_pred_results, caption_pred_results, batched_inputs, images.image_sizes
+        for (
+            mask_cls_result,
+            mask_pred_result,
+            box_pred_result,
+            caption_pred_result,
+            input_per_image,
+            image_size,
+        ) in zip(
+            mask_cls_results,
+            mask_pred_results,
+            box_pred_results,
+            caption_pred_results,
+            batched_inputs,
+            images.image_sizes,
         ):
             height = input_per_image.get("height", image_size[0])
             width = input_per_image.get("width", image_size[1])
@@ -267,23 +295,33 @@ class GeneralizedXdecoder(nn.Module):
 
             # semantic segmentation inference
             if self.semantic_on:
-                r = retry_if_cuda_oom(self.semantic_inference)(mask_cls_result, mask_pred_result, keep_sem_bgd)
+                r = retry_if_cuda_oom(self.semantic_inference)(
+                    mask_cls_result, mask_pred_result, keep_sem_bgd
+                )
                 if not self.sem_seg_postprocess_before_inference:
-                    r = retry_if_cuda_oom(sem_seg_postprocess)(r, image_size, height, width)
+                    r = retry_if_cuda_oom(sem_seg_postprocess)(
+                        r, image_size, height, width
+                    )
                 processed_results[-1]["sem_seg"] = r
 
             # panoptic segmentation inference
             if self.panoptic_on:
-                panoptic_r = retry_if_cuda_oom(self.panoptic_inference)(mask_cls_result, mask_pred_result)
+                panoptic_r = retry_if_cuda_oom(self.panoptic_inference)(
+                    mask_cls_result, mask_pred_result
+                )
                 processed_results[-1]["panoptic_seg"] = panoptic_r
-            
+
             # instance segmentation inference
             if self.instance_on:
-                if self.task_switch['bbox']:
-                    box_pred_result = bbox_postprocess(box_pred_result, input_size, image_size, height, width)
-                instance_r = retry_if_cuda_oom(self.instance_inference)(mask_cls_result, mask_pred_result, box_pred_result)
+                if self.task_switch["bbox"]:
+                    box_pred_result = bbox_postprocess(
+                        box_pred_result, input_size, image_size, height, width
+                    )
+                instance_r = retry_if_cuda_oom(self.instance_inference)(
+                    mask_cls_result, mask_pred_result, box_pred_result
+                )
                 processed_results[-1]["instances"] = instance_r
-            if self.task_switch['caption']:
+            if self.task_switch["caption"]:
                 processed_results[-1]["captions"] = caption_pred_result
                 processed_results[-1]["masks"] = mask_pred_result
 
@@ -294,42 +332,48 @@ class GeneralizedXdecoder(nn.Module):
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
         img_bs = images.tensor.shape[0]
-        
+
         targets = targets_grounding = queries_grounding = None
         features = self.backbone(images.tensor)
         outputs = self.sem_seg_head(features, target_queries=queries_grounding)
-        v_emb_it = outputs['pred_captions'][:,-1]
+        v_emb_it = outputs["pred_captions"][:, -1]
 
         # compute backbone score
-        if self.task_switch['retrieval'] and self.retrieval_emsemble:
-            _v_emb_it = features['res5']
-            bs,nc,_,_ = _v_emb_it.shape
-            _v_emb_it = _v_emb_it.reshape(bs,nc,-1)
-            _v_emb_it = F.adaptive_avg_pool1d(_v_emb_it, 1).reshape(bs,nc) @ self.backbone_proj
+        if self.task_switch["retrieval"] and self.retrieval_emsemble:
+            _v_emb_it = features["res5"]
+            bs, nc, _, _ = _v_emb_it.shape
+            _v_emb_it = _v_emb_it.reshape(bs, nc, -1)
+            _v_emb_it = (
+                F.adaptive_avg_pool1d(_v_emb_it, 1).reshape(bs, nc) @ self.backbone_proj
+            )
 
         processed_results = []
         for idx, batch_data in enumerate(batched_inputs):
             caption_ids = []
             t_emb_its = []
             processed_results.append({})
-            for caption in batch_data['captions']:
-                lang_results = self.sem_seg_head.predictor.lang_encoder.get_text_token_embeddings(caption)
-                t_emb_it = lang_results['class_emb']
-                caption_ids.append(batch_data['image_id'])
+            for caption in batch_data["captions"]:
+                lang_results = (
+                    self.sem_seg_head.predictor.lang_encoder.get_text_token_embeddings(
+                        caption
+                    )
+                )
+                t_emb_it = lang_results["class_emb"]
+                caption_ids.append(batch_data["image_id"])
                 t_emb_its.append(t_emb_it)
 
             t_emb_it = torch.cat(t_emb_its, dim=0)
 
             image_embeds = [v_emb_it[idx].unsqueeze(0)]
-            if self.task_switch['retrieval'] and self.retrieval_emsemble:
+            if self.task_switch["retrieval"] and self.retrieval_emsemble:
                 image_embeds += [_v_emb_it[idx].unsqueeze(0)]
             caption_results = {
-                    'image_embeds': image_embeds,
-                    'text_embeds': t_emb_it,
-                    'caption_ids': caption_ids,
-                    'image_ids': batch_data['image_id'],
-                }
-            processed_results[-1]["caption"] = caption_results            
+                "image_embeds": image_embeds,
+                "text_embeds": t_emb_it,
+                "caption_ids": caption_ids,
+                "image_ids": batch_data["image_id"],
+            }
+            processed_results[-1]["caption"] = caption_results
         return processed_results
 
     def evaluate_captioning(self, batched_inputs):
@@ -338,25 +382,32 @@ class GeneralizedXdecoder(nn.Module):
         images = ImageList.from_tensors(images, self.size_divisibility)
         img_bs = images.tensor.shape[0]
 
-        if not hasattr(self, 'start_token'):
-            self.start_token = torch.tensor([[49406]*77], device=self.device)
-        
+        if not hasattr(self, "start_token"):
+            self.start_token = torch.tensor([[49406] * 77], device=self.device)
+
         targets = targets_grounding = queries_grounding = None
         features = self.backbone(images.tensor)
 
         captioning_mask = None
-        if 'captioning_mask' in batched_inputs[-1]:
-            captioning_mask = torch.cat([x['captioning_mask'] for x in batched_inputs])
+        if "captioning_mask" in batched_inputs[-1]:
+            captioning_mask = torch.cat([x["captioning_mask"] for x in batched_inputs])
 
-        outputs = self.sem_seg_head(features, target_queries=queries_grounding, task='captioning_infer', extra={'start_token': self.start_token, 'captioning_mask': captioning_mask})
+        outputs = self.sem_seg_head(
+            features,
+            target_queries=queries_grounding,
+            task="captioning_infer",
+            extra={"start_token": self.start_token, "captioning_mask": captioning_mask},
+        )
 
         processed_results = []
         for idx, batch_data in enumerate(batched_inputs):
             processed_results.append({})
-            processed_results[-1]["captioning_token"] = outputs['pred_captionings'][idx]
-            processed_results[-1]["captioning_text"] = outputs['pred_texts'][idx].split('.')[0]
-            processed_results[-1]["image_id"] = batched_inputs[idx]['image_id']
-            
+            processed_results[-1]["captioning_token"] = outputs["pred_captionings"][idx]
+            processed_results[-1]["captioning_text"] = outputs["pred_texts"][idx].split(
+                "."
+            )[0]
+            processed_results[-1]["image_id"] = batched_inputs[idx]["image_id"]
+
         return processed_results
 
     def evaluate_classification(self, batched_inputs):
@@ -364,7 +415,7 @@ class GeneralizedXdecoder(nn.Module):
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
         img_bs = images.tensor.shape[0]
-        
+
         targets = targets_grounding = queries_grounding = None
         features = self.backbone(images.tensor)
         outputs = self.sem_seg_head(features, target_queries=queries_grounding)
@@ -372,7 +423,7 @@ class GeneralizedXdecoder(nn.Module):
         processed_results = []
         for idx, batch_data in enumerate(batched_inputs):
             processed_results.append({})
-            processed_results[-1]["pred_class"] = outputs['pred_logits'][idx,-1]
+            processed_results[-1]["pred_class"] = outputs["pred_logits"][idx, -1]
         return processed_results
 
     def evaluate_grounding_baseline(self, batched_inputs, mode):
@@ -380,13 +431,17 @@ class GeneralizedXdecoder(nn.Module):
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.size_divisibility)
         img_bs = images.tensor.shape[0]
-        
+
         targets = targets_grounding = queries_grounding = None
         features = self.backbone(images.tensor)
         outputs = self.sem_seg_head(features, target_queries=queries_grounding)
 
         mask_pred_results = outputs["pred_masks"]
-        caption_pred_results = outputs["pred_captions"] if self.task_switch['caption'] else [None for i in range(len(mask_pred_results))]
+        caption_pred_results = (
+            outputs["pred_captions"]
+            if self.task_switch["caption"]
+            else [None for i in range(len(mask_pred_results))]
+        )
 
         # upsample masks
         mask_pred_results = F.interpolate(
@@ -394,7 +449,7 @@ class GeneralizedXdecoder(nn.Module):
             size=(images.tensor.shape[-2], images.tensor.shape[-1]),
             mode="bicubic",
             align_corners=False,
-            antialias=True
+            antialias=True,
         )
 
         processed_results = []
@@ -409,20 +464,27 @@ class GeneralizedXdecoder(nn.Module):
                 mask_pred_result, image_size, height, width
             )[:-1]
 
-            texts_all = input_per_image['groundings']['texts']
+            texts_all = input_per_image["groundings"]["texts"]
             grd_masks = []
             for texts in texts_all:
-                if mode == 'grounding_refcoco':
-                    self.sem_seg_head.predictor.lang_encoder.get_text_embeddings(texts, name='grounding', prompt=False, is_eval=True)
-                elif mode == 'grounding_phrasecut':
-                    self.sem_seg_head.predictor.lang_encoder.get_text_embeddings(texts, name='grounding', prompt=True, is_eval=False)
-                t_emb = getattr(self.sem_seg_head.predictor.lang_encoder, "{}_text_embeddings".format('grounding')).t()
+                if mode == "grounding_refcoco":
+                    self.sem_seg_head.predictor.lang_encoder.get_text_embeddings(
+                        texts, name="grounding", prompt=False, is_eval=True
+                    )
+                elif mode == "grounding_phrasecut":
+                    self.sem_seg_head.predictor.lang_encoder.get_text_embeddings(
+                        texts, name="grounding", prompt=True, is_eval=False
+                    )
+                t_emb = getattr(
+                    self.sem_seg_head.predictor.lang_encoder,
+                    "{}_text_embeddings".format("grounding"),
+                ).t()
                 v_emb = caption_pred_result[:-1]
                 v_emb = v_emb / (v_emb.norm(dim=-1, keepdim=True) + 1e-7)
                 vt_sim = v_emb @ t_emb
                 max_id = vt_sim.max(0)[1][0]
                 grd_masks += [mask_pred_result[max_id]]
-            processed_results[-1]['grounding_mask'] = torch.stack(grd_masks)
+            processed_results[-1]["grounding_mask"] = torch.stack(grd_masks)
 
         return processed_results
 
@@ -440,24 +502,24 @@ class GeneralizedXdecoder(nn.Module):
         #         gtext = self.sem_seg_head.predictor.lang_encoder.get_text_token_embeddings([anno_text[0]], name='grounding', token=False, norm=False)
         #         token_emb = gtext['token_emb']
         #         tokens = gtext['tokens']
-            
+
         #         grd_emb = token_emb[0][tokens['attention_mask'].bool()[0]]
         #         extra['grounding_tokens'] = grd_emb[:,None]
 
         #         assert len(images.tensor) == 1, "grounding evaluation only support single batch size now"
         #         features = self.backbone(images.tensor)
         #         outputs = self.sem_seg_head(features, extra=extra, task='grounding_eval')
-                
+
         #         pred_gmasks = outputs['pred_masks'][idx,self.num_queries:2*self.num_queries-1]
         #         v_emb = outputs['pred_captions'][idx,self.num_queries:2*self.num_queries-1]
         #         t_emb = grd_emb[-1:]
 
         #         t_emb = t_emb / (t_emb.norm(dim=-1, keepdim=True) + 1e-7)
-        #         v_emb = v_emb / (v_emb.norm(dim=-1, keepdim=True) + 1e-7)            
+        #         v_emb = v_emb / (v_emb.norm(dim=-1, keepdim=True) + 1e-7)
 
         #         temperature = self.sem_seg_head.predictor.lang_encoder.logit_scale
         #         out_prob = vl_similarity(v_emb, t_emb, temperature=temperature)
-                
+
         #         matched_id = out_prob.max(0)[1]
         #         grd_masks += [pred_gmasks[matched_id,:,:]]
         #     mask_pred_results += [torch.cat(grd_masks)]
@@ -465,30 +527,36 @@ class GeneralizedXdecoder(nn.Module):
         # comment for multi object inference.
         mask_pred_results = []
         for idx, batch_per_image in enumerate(batched_inputs):
-            grd_texts = batch_per_image['groundings']['texts']
+            grd_texts = batch_per_image["groundings"]["texts"]
             grd_texts = [x[0] for x in grd_texts]
 
-            gtext = self.sem_seg_head.predictor.lang_encoder.get_text_token_embeddings(grd_texts, name='grounding', token=False, norm=False)
-            token_emb = gtext['token_emb']
-            tokens = gtext['tokens']
-            query_emb = token_emb[tokens['attention_mask'].bool()]
-            extra['grounding_tokens'] = query_emb[:,None]
+            gtext = self.sem_seg_head.predictor.lang_encoder.get_text_token_embeddings(
+                grd_texts, name="grounding", token=False, norm=False
+            )
+            token_emb = gtext["token_emb"]
+            tokens = gtext["tokens"]
+            query_emb = token_emb[tokens["attention_mask"].bool()]
+            extra["grounding_tokens"] = query_emb[:, None]
 
             features = self.backbone(images.tensor)
-            outputs = self.sem_seg_head(features, extra=extra, task='grounding_eval')
+            outputs = self.sem_seg_head(features, extra=extra, task="grounding_eval")
 
-            pred_gmasks = outputs['pred_masks'][idx,self.num_queries:2*self.num_queries-1]
-            v_emb = outputs['pred_captions'][idx,self.num_queries:2*self.num_queries-1]
-            t_emb = gtext['class_emb']
+            pred_gmasks = outputs["pred_masks"][
+                idx, self.num_queries : 2 * self.num_queries - 1
+            ]
+            v_emb = outputs["pred_captions"][
+                idx, self.num_queries : 2 * self.num_queries - 1
+            ]
+            t_emb = gtext["class_emb"]
 
             t_emb = t_emb / (t_emb.norm(dim=-1, keepdim=True) + 1e-7)
-            v_emb = v_emb / (v_emb.norm(dim=-1, keepdim=True) + 1e-7)            
+            v_emb = v_emb / (v_emb.norm(dim=-1, keepdim=True) + 1e-7)
 
             temperature = self.sem_seg_head.predictor.lang_encoder.logit_scale
             out_prob = vl_similarity(v_emb, t_emb, temperature=temperature)
-            
+
             matched_id = out_prob.max(0)[1]
-            mask_pred_results += [pred_gmasks[matched_id,:,:]]
+            mask_pred_results += [pred_gmasks[matched_id, :, :]]
 
         for i in range(len(mask_pred_results)):
             # upsample masks
@@ -497,7 +565,7 @@ class GeneralizedXdecoder(nn.Module):
                 size=(images.tensor.shape[-2], images.tensor.shape[-1]),
                 mode="bicubic",
                 align_corners=False,
-                antialias=True
+                antialias=True,
             )[0]
 
         processed_results = []
@@ -511,7 +579,7 @@ class GeneralizedXdecoder(nn.Module):
             mask_pred_result = retry_if_cuda_oom(sem_seg_postprocess)(
                 mask_pred_result, image_size, height, width
             )
-            processed_results[-1]['grounding_mask'] = mask_pred_result
+            processed_results[-1]["grounding_mask"] = mask_pred_result
 
             # compute bbox
             # bbox = BitMasks(mask_pred_result > 0).get_bounding_boxes()
@@ -535,7 +603,9 @@ class GeneralizedXdecoder(nn.Module):
         scores, labels = F.softmax(mask_cls.float(), dim=-1).max(-1)
         mask_pred = mask_pred.float().sigmoid()
 
-        keep = labels.ne(self.sem_seg_head.num_classes) & (scores > self.object_mask_threshold)
+        keep = labels.ne(self.sem_seg_head.num_classes) & (
+            scores > self.object_mask_threshold
+        )
         cur_scores = scores[keep]
         cur_classes = labels[keep]
         cur_masks = mask_pred[keep]
@@ -556,7 +626,11 @@ class GeneralizedXdecoder(nn.Module):
             # take argmax
             cur_mask_ids = cur_prob_masks.argmax(0)
             stuff_memory_list = {}
-            thing_dataset_id_to_contiguous_id = self.metadata.thing_dataset_id_to_contiguous_id if hasattr(self.metadata, 'thing_dataset_id_to_contiguous_id') else {}
+            thing_dataset_id_to_contiguous_id = (
+                self.metadata.thing_dataset_id_to_contiguous_id
+                if hasattr(self.metadata, "thing_dataset_id_to_contiguous_id")
+                else {}
+            )
             for k in range(cur_classes.shape[0]):
                 pred_class = cur_classes[k].item()
                 isthing = pred_class in thing_dataset_id_to_contiguous_id.values()
@@ -594,12 +668,19 @@ class GeneralizedXdecoder(nn.Module):
 
         # [Q, K]
         scores = F.softmax(mask_cls.float(), dim=-1)[:, :-1]
-        labels = torch.arange(self.sem_seg_head.num_classes, device=self.device).unsqueeze(0).repeat(self.num_queries, 1).flatten(0, 1)
+        labels = (
+            torch.arange(self.sem_seg_head.num_classes, device=self.device)
+            .unsqueeze(0)
+            .repeat(self.num_queries, 1)
+            .flatten(0, 1)
+        )
         # scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.num_queries, sorted=False)
-        scores_per_image, topk_indices = scores.flatten(0, 1).topk(self.test_topk_per_image, sorted=False)
+        scores_per_image, topk_indices = scores.flatten(0, 1).topk(
+            self.test_topk_per_image, sorted=False
+        )
 
         labels_per_image = labels[topk_indices]
-        topk_indices = (topk_indices // self.sem_seg_head.num_classes)
+        topk_indices = topk_indices // self.sem_seg_head.num_classes
         # mask_pred = mask_pred.unsqueeze(1).repeat(1, self.sem_seg_head.num_classes, 1).flatten(0, 1)
         mask_pred = mask_pred[topk_indices]
         if box_pred is not None:
@@ -607,7 +688,11 @@ class GeneralizedXdecoder(nn.Module):
 
         # if this is panoptic segmentation, we only keep the "thing" classes
         if self.panoptic_on:
-            thing_dataset_id_to_contiguous_id = self.metadata.thing_dataset_id_to_contiguous_id if hasattr(self.metadata, 'thing_dataset_id_to_contiguous_id') else {}
+            thing_dataset_id_to_contiguous_id = (
+                self.metadata.thing_dataset_id_to_contiguous_id
+                if hasattr(self.metadata, "thing_dataset_id_to_contiguous_id")
+                else {}
+            )
             keep = torch.zeros_like(scores_per_image).bool()
             for i, lab in enumerate(labels_per_image):
                 keep[i] = lab in thing_dataset_id_to_contiguous_id.values()
@@ -631,12 +716,13 @@ class GeneralizedXdecoder(nn.Module):
             result.pred_boxes = Boxes(torch.zeros(mask_pred.size(0), 4))
 
         # calculate average mask prob
-        mask_scores_per_image = (mask_pred.float().sigmoid().flatten(1) * result.pred_masks.flatten(1)).sum(1) / (result.pred_masks.flatten(1).sum(1) + 1e-6)
+        mask_scores_per_image = (
+            mask_pred.float().sigmoid().flatten(1) * result.pred_masks.flatten(1)
+        ).sum(1) / (result.pred_masks.flatten(1).sum(1) + 1e-6)
         result.scores = scores_per_image * mask_scores_per_image
         result.pred_classes = labels_per_image
 
         return result
-
 
 
 @register_model

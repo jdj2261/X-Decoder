@@ -91,8 +91,8 @@ class CaptioningEvaluator(DatasetEvaluator):
                 "instances" that contains :class:`Instances`.
         """
         for output in outputs:
-            self._image_ids.append(output['image_id'])
-            self._gen_captions.append(output['captioning_text'])
+            self._image_ids.append(output["image_id"])
+            self._gen_captions.append(output["captioning_text"])
 
     def evaluate(self, img_ids=None):
         """
@@ -102,12 +102,14 @@ class CaptioningEvaluator(DatasetEvaluator):
 
         if self._distributed:
             comm.synchronize()
+
             def gather(x, move=False):
                 x = comm.gather(x)
                 x = list(itertools.chain(*x))
                 if move:
                     x = [xx.to(self._gen_captions[0].device) for xx in x]
                 return x
+
             gen_captions = gather(self._gen_captions)
             image_ids = gather(self._image_ids)
             if not comm.is_main_process():
@@ -117,14 +119,17 @@ class CaptioningEvaluator(DatasetEvaluator):
             image_ids = self._image_ids
 
         assert len(gen_captions) == len(image_ids)
-        pred_captions = [{"image_id": image_id, "caption": gen_caption} for image_id, gen_caption in zip(image_ids, gen_captions)]
-        pred_pth = os.path.join(self._output_dir, 'results.json')
+        pred_captions = [
+            {"image_id": image_id, "caption": gen_caption}
+            for image_id, gen_caption in zip(image_ids, gen_captions)
+        ]
+        pred_pth = os.path.join(self._output_dir, "results.json")
         json.dump(pred_captions, open(pred_pth, "w"))
 
         gt_captions = self._gt_json
         pred_captions = gt_captions.loadRes(pred_pth)
 
         cocoEval = COCOEvalCap(gt_captions, pred_captions)
-        cocoEval.params['image_id'] = pred_captions.getImgIds()
+        cocoEval.params["image_id"] = pred_captions.getImgIds()
         cocoEval.evaluate()
         return cocoEval.eval

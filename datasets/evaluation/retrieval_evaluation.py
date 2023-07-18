@@ -79,6 +79,7 @@ class RetrievalEvaluator(DatasetEvaluator):
         self._output_dir = output_dir
         self._ensemble = ensemble
         from transformers import CLIPTokenizer
+
         self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
 
     def reset(self):
@@ -98,12 +99,12 @@ class RetrievalEvaluator(DatasetEvaluator):
                 "instances" that contains :class:`Instances`.
         """
         for output in outputs:
-            self._text_ids.extend(output['caption']['caption_ids'])
-            self._image_ids.append(output['caption']['image_ids'])
-            self._text_embeds.append(output['caption']['text_embeds'])
-            self._image_embeds.append(output['caption']['image_embeds'][0])
+            self._text_ids.extend(output["caption"]["caption_ids"])
+            self._image_ids.append(output["caption"]["image_ids"])
+            self._text_embeds.append(output["caption"]["text_embeds"])
+            self._image_embeds.append(output["caption"]["image_embeds"][0])
             if self._ensemble:
-                self._image_embeds2.append(output['caption']['image_embeds'][1])
+                self._image_embeds2.append(output["caption"]["image_embeds"][1])
 
     def evaluate(self, img_ids=None):
         """
@@ -113,12 +114,14 @@ class RetrievalEvaluator(DatasetEvaluator):
 
         if self._distributed:
             comm.synchronize()
+
             def gather(x, move=False):
                 x = comm.gather(x)
                 x = list(itertools.chain(*x))
                 if move:
                     x = [xx.to(self._text_embeds[0].device) for xx in x]
                 return x
+
             text_embeds = gather(self._text_embeds, move=True)
             image_embeds = gather(self._image_embeds, move=True)
             if self._ensemble:
@@ -135,19 +138,21 @@ class RetrievalEvaluator(DatasetEvaluator):
             text_ids = self._text_ids
             image_ids = self._image_ids
         if len(text_embeds) == 0:
-            self._logger.warning("[COCOCaptionEvaluator] Did not receive valid predictions.")
+            self._logger.warning(
+                "[COCOCaptionEvaluator] Did not receive valid predictions."
+            )
             return {}
         iids = torch.tensor(image_ids).view(-1).cuda()
         tiids = torch.tensor(text_ids).view(-1).cuda()
         image_embeds = torch.cat(image_embeds)
         text_embeds = torch.cat(text_embeds)
-        image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True) 
-        text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True) 
+        image_embeds = image_embeds / image_embeds.norm(dim=-1, keepdim=True)
+        text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
         scores = image_embeds @ text_embeds.t()
 
         if self._ensemble:
             image_embeds2 = torch.cat(image_embeds2)
-            image_embeds2 = image_embeds2 / image_embeds2.norm(dim=-1, keepdim=True) 
+            image_embeds2 = image_embeds2 / image_embeds2.norm(dim=-1, keepdim=True)
             scores2 = image_embeds2 @ text_embeds.t()
             scores = scores2 * 0.5 + scores * 0.5
 
@@ -171,12 +176,14 @@ class RetrievalEvaluator(DatasetEvaluator):
         ir_r1 = (tiids.unsqueeze(0) == topk1_iids).float().max(dim=0)[0].mean()
         self._results = OrderedDict()
         # Copy so the caller can do whatever with results
-        self._results['recall'] = {}
-        self._results['recall']['irtr'] = float("{:.3f}".format((ir_r1 + tr_r1).item() * 100))
-        self._results['recall']['ir1'] = float("{:.3f}".format(ir_r1.item() * 100))
-        self._results['recall']['ir5'] = float("{:.3f}".format(ir_r5.item() * 100))
-        self._results['recall']['ir10'] = float("{:.3f}".format(ir_r10.item() * 100))
-        self._results['recall']['tr1'] = float("{:.3f}".format(tr_r1.item() * 100))
-        self._results['recall']['tr5'] = float("{:.3f}".format(tr_r5.item() * 100))
-        self._results['recall']['tr10'] = float("{:.3f}".format(tr_r10.item() * 100))
+        self._results["recall"] = {}
+        self._results["recall"]["irtr"] = float(
+            "{:.3f}".format((ir_r1 + tr_r1).item() * 100)
+        )
+        self._results["recall"]["ir1"] = float("{:.3f}".format(ir_r1.item() * 100))
+        self._results["recall"]["ir5"] = float("{:.3f}".format(ir_r5.item() * 100))
+        self._results["recall"]["ir10"] = float("{:.3f}".format(ir_r10.item() * 100))
+        self._results["recall"]["tr1"] = float("{:.3f}".format(tr_r1.item() * 100))
+        self._results["recall"]["tr5"] = float("{:.3f}".format(tr_r5.item() * 100))
+        self._results["recall"]["tr10"] = float("{:.3f}".format(tr_r10.item() * 100))
         return copy.deepcopy(self._results)
