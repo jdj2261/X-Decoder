@@ -97,6 +97,7 @@ class FocalModulation(nn.Module):
         x = x.permute(0, 3, 1, 2).contiguous()
         q, ctx, gates = torch.split(x, (C, C, self.focal_level+1), 1)
         
+        # Context Aggregation
         ctx_all = 0
         for l in range(self.focal_level):                     
             ctx = self.focal_layers[l](ctx)
@@ -107,6 +108,7 @@ class FocalModulation(nn.Module):
         if self.scaling_modulator:
             ctx_all = ctx_all / (self.focal_level + 1)
 
+        # Interact
         x_out = q * self.h(ctx_all)
         x_out = x_out.permute(0, 2, 3, 1).contiguous()
         if self.use_postln_in_modulation:
@@ -777,7 +779,6 @@ class D2FocalNet(FocalNet, Backbone):
 
 @register_backbone
 def get_focal_backbone(cfg):
-    print("focal_dw")
     focal = D2FocalNet(cfg['MODEL'], 224)    
 
     if cfg['MODEL']['BACKBONE']['LOAD_PRETRAINED'] is True:
