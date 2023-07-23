@@ -17,7 +17,7 @@ from torchvision import transforms
 
 from pycocotools import mask
 from detectron2.data import detection_utils as utils
-from datasets.utils import transforms as T
+from utils import transforms as T
 
 from xdecoder.utils import configurable
 

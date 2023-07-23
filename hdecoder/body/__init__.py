@@ -1,1 +1,1 @@
-from .build import build_xdecoder_head
+from .build import build_hoi_head

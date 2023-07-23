@@ -6,7 +6,7 @@ import torchvision.transforms as T
 import torchvision.transforms.functional as F
 
 from .box_ops import box_xyxy_to_cxcywh
-from .misc import interpolate
+from datasets.utils.misc import interpolate
 
 
 def crop(image, target, region):
