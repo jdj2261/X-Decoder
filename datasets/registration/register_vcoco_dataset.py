@@ -3,7 +3,6 @@ import os
 import json
 
 from detectron2.data import DatasetCatalog, MetadataCatalog
-from detectron2.data.datasets import load_sem_seg
 
 
 _PREDEFINED_SPLITS_VCOCO_CAPTION = {

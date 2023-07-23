@@ -978,7 +978,6 @@ def register_all_ade20k_full(root):
     meta = _get_ade20k_full_meta()
     for name, dirname in [("train", "training"), ("val", "validation")]:
         image_dir = os.path.join(root, "images_detectron2", dirname)
-        print(image_dir)
         gt_dir = os.path.join(root, "annotations_detectron2", dirname)
         name = f"ade20k_full_sem_seg_{name}"
         DatasetCatalog.register(

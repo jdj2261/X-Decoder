@@ -6,19 +6,10 @@
 # --------------------------------------------------------
 # Copyright (c) Facebook, Inc. and its affiliates.
 import copy
-import random
-
-import scipy.io
-import numpy as np
 import torch
 from PIL import Image
 
-from torchvision import transforms
-
-from pycocotools import mask
-from detectron2.data import detection_utils as utils
 from utils import transforms as T
-
 from xdecoder.utils import configurable
 
 __all__ = ["VCOCODatasetMapper"]
@@ -29,101 +20,20 @@ class VCOCODatasetMapper:
     def __init__(
         self, is_train=True, min_size_test=None, max_size_test=None, num_queries=100
     ):
-        """
-        NOTE: this interface is experimental.
-        Args:
-            is_train: for training or inference
-            augmentations: a list of augmentations or deterministic transforms to apply
-            tfm_gens: data augmentation
-            image_format: an image format supported by :func:`detection_utils.read_image`.
-        """
         self.is_train = is_train
         self.min_size_test = min_size_test
         self.max_size_test = max_size_test
         self.num_queries = num_queries
 
-        self._valid_obj_ids = (
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            13,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            24,
-            25,
-            27,
-            28,
-            31,
-            32,
-            33,
-            34,
-            35,
-            36,
-            37,
-            38,
-            39,
-            40,
-            41,
-            42,
-            43,
-            44,
-            46,
-            47,
-            48,
-            49,
-            50,
-            51,
-            52,
-            53,
-            54,
-            55,
-            56,
-            57,
-            58,
-            59,
-            60,
-            61,
-            62,
-            63,
-            64,
-            65,
-            67,
-            70,
-            72,
-            73,
-            74,
-            75,
-            76,
-            77,
-            78,
-            79,
-            80,
-            81,
-            82,
-            84,
-            85,
-            86,
-            87,
-            88,
-            89,
-            90,
-        )
+        self._valid_obj_ids = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13,
+                               14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+                               24, 25, 27, 28, 31, 32, 33, 34, 35, 36,
+                               37, 38, 39, 40, 41, 42, 43, 44, 46, 47,
+                               48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
+                               58, 59, 60, 61, 62, 63, 64, 65, 67, 70,
+                               72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+                               82, 84, 85, 86, 87, 88, 89, 90)
+        
         self._valid_verb_ids = range(29)
         self._transforms = self.make_vcoco_transforms(is_train)
 

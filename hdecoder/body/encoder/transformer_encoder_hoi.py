@@ -183,10 +183,10 @@ class BaseEncoder(nn.Module):
         return mask_features, None, multi_scale_features
 
     def forward(self, features, targets=None):
-        logger = logging.getLogger(__name__)
-        logger.warning(
-            "Calling forward() may cause unpredicted behavior of PixelDecoder module."
-        )
+        # logger = logging.getLogger(__name__)
+        # logger.warning(
+        #     "Calling forward() may cause unpredicted behavior of TransformerEncoderHOI module."
+        # )
         return self.forward_features(features)
 
 class TransformerEncoderHOI(BaseEncoder):
@@ -289,10 +289,10 @@ class TransformerEncoderHOI(BaseEncoder):
         return transformer_encoder_features, pos
 
     def forward(self, features, targets=None):
-        logger = logging.getLogger(__name__)
-        logger.warning(
-            "Calling forward() may cause unpredicted behavior of PixelDecoder module."
-        )
+        # logger = logging.getLogger(__name__)
+        # logger.warning(
+        #     "Calling forward() may cause unpredicted behavior of TransformerEncoderHOI module."
+        # )
         return self.forward_features(features)
 
 @register_encoder
