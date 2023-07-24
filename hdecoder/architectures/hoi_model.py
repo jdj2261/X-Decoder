@@ -112,7 +112,7 @@ class CDNHOI(nn.Module):
             losses = {}
             hoi_outputs = self.forward_hoi(images)
             targets = self._prepare_targets(batched_inputs, images)
-            losses_hoi = self.criterion(hoi_outputs, targets)
+            # losses_hoi = self.criterion(hoi_outputs, targets)
 
             losses.update({})
             
