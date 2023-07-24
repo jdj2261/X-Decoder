@@ -38,7 +38,7 @@ class CDNHOI(nn.Module):
         self.hoid_head = hoi_head
         self.criterion = criterion
         self.losses = losses
-        self.num_queries = num_queries
+        # self.num_queries = num_queries
         self.dec_layers_hopd = num_dec_layers_hopd
         self.dec_layers_interaction = num_dec_layers_interaction
 
@@ -61,6 +61,7 @@ class CDNHOI(nn.Module):
         backbone = build_backbone(cfg)
         hoi_head = build_hoi_head(cfg, backbone.output_shape())
 
+        # for matching
         matcher = HungarianMatcherHOI(
             cost_obj_class=dec_cfg["COST_OBJECT_CLASS"], 
             cost_verb_class=dec_cfg["COST_VERB_CLASS"],
@@ -69,6 +70,7 @@ class CDNHOI(nn.Module):
             cost_matching=dec_cfg["COST_MATCHING"]
         )
 
+        # for matching
         weight_dict = {}
         weight_dict['loss_obj_ce'] = dec_cfg["OBJ_LOSS_COEF"]
         weight_dict['loss_verb_ce'] = dec_cfg["VERB_LOSS_COEF"]
@@ -103,25 +105,25 @@ class CDNHOI(nn.Module):
             "num_dec_layers_interaction" : dec_cfg["INTERACTION_DEC_LAYERS"],
         }
 
+    @property
+    def device(self):
+        return self.pixel_mean.device
+
     def forward(self, batched_inputs):
-        images = [x["image"].to("cuda") for x in batched_inputs]
+        outputs = self.forward_hoi(batched_inputs)
+        if self.training:
+            targets = self._prepare_targets(batched_inputs)
+            losses_hoi = self.criterion(outputs, targets)
+            return losses_hoi
+        else:
+            return self.evaluate_hoi(outputs)
+        
+    def forward_hoi(self, batched_inputs):
+        assert "instances" in batched_inputs[0]
+        images = [x["image"].to(self.device) for x in batched_inputs]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, 32)
 
-        if self.training:
-            losses = {}
-            hoi_outputs = self.forward_hoi(images)
-            targets = self._prepare_targets(batched_inputs, images)
-            # losses_hoi = self.criterion(hoi_outputs, targets)
-
-            losses.update({})
-            
-            # del hoi_outputs
-            return hoi_outputs
-        else:
-            pass
-        
-    def forward_hoi(self, images):
         bs, c, h, w = images.tensor.shape
         features = self.backbone(images.tensor)
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
@@ -146,12 +148,18 @@ class CDNHOI(nn.Module):
 
         return out
 
-    def _prepare_targets(self, batch_inputs, images):
-        pass
-
-    def hoi_evaluate(self, batched_inputs):
-        pass
-
+    def _prepare_targets(self, batched_inputs):
+        new_targets = []
+        for idx, batch_per_image in enumerate(batched_inputs):
+            targets = batch_per_image["instances"]
+            new_targets.append({k: v.to(self.device) for k, v in targets.items() if k != 'filename'})
+        return new_targets
+            
+    def evaluate_hoi(self, outputs):
+        # orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+        # results = postprocessors['hoi'](outputs, orig_target_sizes)
+        return outputs
+    
     def hoi_inference(self):
         pass
 
