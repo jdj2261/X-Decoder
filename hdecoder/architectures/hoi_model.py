@@ -139,6 +139,7 @@ class CDNHOI(nn.Module):
 
         # TODO
         results = self.postprocessors(outputs, orig_target_sizes)
+        print(results)
         return results
     
     def hoi_inference(self):
