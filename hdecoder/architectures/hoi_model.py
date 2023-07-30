@@ -79,16 +79,17 @@ class CDNHOI(nn.Module):
 
         postprocessors = PostProcessHOI()
 
+        pixel_mean = cfg["INPUT"]["PIXEL_MEAN"]
+        pixel_mean = cfg["INPUT"]["PIXEL_STD"]
+        
         return {
             "backbone": backbone,
             "hoi_head": hoi_head,
             "criterion": criterion,
             "losses": losses,
             "postprocessors": postprocessors,
-            "pixel_mean": cfg["INPUT"]["PIXEL_MEAN"],
-            "pixel_std": cfg["INPUT"]["PIXEL_STD"],
-            "pixel_std": cfg["INPUT"]["PIXEL_STD"],
-            "pixel_std": cfg["INPUT"]["PIXEL_STD"],
+            "pixel_mean": pixel_mean,
+            "pixel_std": pixel_mean,
         }
 
     @property

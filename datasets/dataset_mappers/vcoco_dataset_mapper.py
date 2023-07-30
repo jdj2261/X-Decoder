@@ -18,12 +18,20 @@ __all__ = ["VCOCODatasetMapper"]
 class VCOCODatasetMapper:
     @configurable
     def __init__(
-        self, is_train=True, min_size_test=None, max_size_test=None, num_queries=100
+        self, 
+        is_train=True, 
+        min_size_test=None, 
+        max_size_test=None, 
+        num_queries=100,
+        mean=None,
+        std=None,
     ):
         self.is_train = is_train
         self.min_size_test = min_size_test
         self.max_size_test = max_size_test
         self.num_queries = num_queries
+        self.pixel_mean = torch.tensor(mean)[:, None, None]
+        self.pixel_std = torch.tensor(std)[:, None, None]
 
         self._valid_obj_ids = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13,
                                14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
@@ -43,6 +51,8 @@ class VCOCODatasetMapper:
             "is_train": is_train,
             "min_size_test": cfg["INPUT"]["MIN_SIZE_TEST"],
             "max_size_test": cfg["INPUT"]["MAX_SIZE_TEST"],
+            "mean": cfg["INPUT"]["PIXEL_MEAN"],
+            "std": cfg["INPUT"]["PIXEL_STD"],
         }
         return ret
 

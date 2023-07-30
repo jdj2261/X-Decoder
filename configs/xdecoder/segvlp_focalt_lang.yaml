@@ -5,13 +5,37 @@
 # Written by Xueyan Zou (xueyan@cs.wisc.edu)
 # --------------------------------------------------------
 
+# Define Test/Trainer/Saving
+PIPELINE: XDecoderPipeline
+TRAINER: xdecoder
+SAVE_DIR: '../../data/output/test'
+base_path: "./"
+
+# Resume Logistic
+RESUME: false
+WEIGHT: false
+RESET_DATA_LOADER: false
+RESUME_FROM: ''
+PYLEARN_MODEL: '' # model resume when evaluation
+DONT_LOAD_MODEL: true
+
+# Logging and Debug
+LOG_EVERY: 500
+FIND_UNUSED_PARAMETERS: false
+
+# Speed up training
+FP16: false
+PORT: '36873'
+
+# misc
+LOADER:
+  JOINT: True
+  KEY_DATASET: 'coco'
+
 ##################
 # Task settings
 ##################
-WEIGHT: ''
-PORT: '36873'
 VERBOSE: true
-SAVE_DIR: '../../data/output/test'
 MODEL:
   NAME: xdecoder_model
   HEAD: xdecoder_head
@@ -66,18 +90,6 @@ MODEL:
     TRANSFORMER_ENC_LAYERS: 6
   DECODER:
     NAME: xdecoder
-    MASK: False
-    HIDDEN_DIM: 512
-    NUM_OBJECT_QUERIES: 101
-    NUM_OBJECT_CLASSES: 80
-    NUM_VERB_CLASSES: 27
-    NHEADS: 8
-    DROPOUT: 0.1
-    DIM_FEEDFORWARD: 2048
-    PRE_NORM: False
-    HOPD_DEC_LAYERS: 3
-    INTERACTION_DEC_LAYERS: 3
-    RETURN_INTERMEDIATE_DEC: False
     TRANSFORMER_IN_FEATURE: "multi_scale_pixel_decoder"
     MASK: True
     GROUNDING:
@@ -97,6 +109,29 @@ MODEL:
       ENABLED: True
       DIM_IMG: 768
       ENSEMBLE: True
+    DEEP_SUPERVISION: True
+    NO_OBJECT_WEIGHT: 0.1
+    CAPTION_WEIGHT: 1.0
+    CAPTIONING_WEIGHT: 2.0
+    RETRIEVAL_WEIGHT: 2.0
+    BACKBONER_WEIGHT: 8.0
+    GCLASS_WEIGHT: 0.4
+    GMASK_WEIGHT: 1.0
+    GDICE_WEIGHT: 1.0
+    OCLASS_WEIGHT: 0.4
+    OMASK_WEIGHT: 1.0 
+    ODICE_WEIGHT: 1.0
+    CLASS_WEIGHT: 2.0
+    MASK_WEIGHT: 5.0
+    DICE_WEIGHT: 5.0
+    BBOX_WEIGHT: 5.0
+    GIOU_WEIGHT: 2.0
+    HIDDEN_DIM: 512
+    NUM_OBJECT_QUERIES: 101
+    NHEADS: 8
+    DROPOUT: 0.0
+    DIM_FEEDFORWARD: 2048
+    PRE_NORM: False
     ENFORCE_INPUT_PROJ: False
     SIZE_DIVISIBILITY: 32
     TRAIN_NUM_POINTS: 12544
@@ -115,9 +150,11 @@ MODEL:
       OBJECT_MASK_THRESHOLD: 0.8
       SEM_SEG_POSTPROCESSING_BEFORE_INFERENCE: false
 
-
 COCO:
   INPUT:
+    MIN_SIZE_TRAIN: 800
+    MAX_SIZE_TRAIN: 1333
+    MIN_SIZE_TRAIN_SAMPLING: 'choice'
     MIN_SIZE_TEST: 800
     MAX_SIZE_TEST: 1333
     IMAGE_SIZE: 1024
@@ -143,6 +180,11 @@ COCO:
     MODEL_FILE: ''
     AUG:
       ENABLED: False
+  TRAIN:
+    ASPECT_RATIO_GROUPING: true
+    BATCH_SIZE_TOTAL: 2
+    BATCH_SIZE_PER_GPU: 1
+    SHUFFLE: true
   DATALOADER:
     FILTER_EMPTY_ANNOTATIONS: False
     NUM_WORKERS: 2
@@ -163,9 +205,9 @@ VLP:
       ENABLED: True
   TRAIN:
     BATCH_SIZE_TOTAL: 2
-    BATCH_SIZE_PER_GPU: 2
+    BATCH_SIZE_PER_GPU: 1
   TEST:
-    BATCH_SIZE_TOTAL: 64
+    BATCH_SIZE_TOTAL: 256
   DATALOADER:
     FILTER_EMPTY_ANNOTATIONS: False
     NUM_WORKERS: 16
@@ -178,14 +220,13 @@ INPUT:
   PIXEL_STD: [58.395, 57.120, 57.375]
 
 DATASETS:
+  TRAIN: ["coco_2017_train_panoptic_filtall_with_sem_seg_caption_grounding", "vlp_train"]
   # open vocabulary segmentation evaluation.
+  # TEST: ["ade20k_panoptic_val"]
+  TEST: ["coco_2017_val_panoptic_with_sem_seg", "vlp_captioning_val", "refcocog_val_umd", "vlp_val", "ade20k_panoptic_val"]
   # TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val", "sunrgbd_37_val_seg", "scannet_21_val_seg", "scannet_21_panoptic_val", "scannet_41_val_seg", "cityscapes_fine_panoptic_val", "cityscapes_fine_instance_seg_val", "cityscapes_fine_sem_seg_val", "bdd10k_val_sem_seg", "bdd10k_40_panoptic_val"]
-  TEST: ["refcocog_val_umd"]
-  # TEST: ["refcocog_val_umd"]
-  # TEST: [ "ade20k_full_sem_seg_val"]
   # Supervised metrics evaluation.
   # TEST: ["vlp_captioning_val", "refcocog_val_umd", "vlp_val"]
-  CLASS_CONCAT: false
   SIZE_DIVISIBILITY: 32
   PROPOSAL_FILES_TRAIN: []
 
@@ -196,6 +237,31 @@ DATALOADER:
   SAMPLER_TRAIN: "TrainingSampler"
   ASPECT_RATIO_GROUPING: True
 
+# Detectron2 training config for optimizer and lr scheduler
+SOLVER:
+  BASE_LR: 0.0001
+  STEPS: [0.88889, 0.96296]
+  MAX_ITER: 1
+  GAMMA: 0.1
+  WARMUP_FACTOR: 1.0
+  WARMUP_ITERS: 10
+  WARMUP_METHOD: "linear"
+  WEIGHT_DECAY: 0.05
+  OPTIMIZER: "ADAMW"
+  LR_SCHEDULER_NAME: "WarmupMultiStepLR"
+  LR_MULTIPLIER:
+    backbone: 0.1
+    lang_encoder: 0.1
+  WEIGHT_DECAY_NORM: 0.0
+  WEIGHT_DECAY_EMBED: 0.0
+  CLIP_GRADIENTS:
+    ENABLED: True
+    CLIP_TYPE: "full_model"
+    CLIP_VALUE: 5.0 # 0.01
+    NORM_TYPE: 2.0
+  AMP:
+    ENABLED: True
+  MAX_NUM_EPOCHS: 50
 
 # Evaluation Dataset
 ADE20K:
@@ -203,8 +269,8 @@ ADE20K:
     MIN_SIZE_TRAIN: 640
     MIN_SIZE_TRAIN_SAMPLING: "choice"
     MIN_SIZE_TEST: 640
-    MAX_SIZE_TRAIN: 200 #2560
-    MAX_SIZE_TEST: 200 #2560
+    MAX_SIZE_TRAIN: 2560
+    MAX_SIZE_TEST: 2560
     MASK_FORMAT: "polygon"
     CROP:
       ENABLED: True
@@ -222,22 +288,6 @@ ADE20K:
 
 
 REF:
-  INPUT:
-    PIXEL_MEAN: [123.675, 116.280, 103.530]
-    PIXEL_STD: [58.395, 57.120, 57.375]
-    MIN_SIZE_TEST: 512
-    MAX_SIZE_TEST: 1024
-    FORMAT: "RGB"
-  DATALOADER:
-    FILTER_EMPTY_ANNOTATIONS: False
-    NUM_WORKERS: 0
-    LOAD_PROPOSALS: False
-    SAMPLER_TRAIN: "TrainingSampler"
-    ASPECT_RATIO_GROUPING: False
-  TEST:
-    BATCH_SIZE_TOTAL: 8
-
-VCOCO:
   INPUT:
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]

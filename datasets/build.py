@@ -470,14 +470,14 @@ def build_train_dataloader(
             loaders[dataset_name] = build_detection_train_loader(
                 cfg, dataset_name, mapper=mapper
             )
+            return list(loaders.values())
         else:
             mapper = None
             loaders[dataset_name] = build_detection_train_loader(
                 cfg, dataset_name=dataset_name, mapper=mapper
             )
 
-    # if len(loaders) == 1 and not cfg['LOADER'].get('JOINT', False):
-    if len(loaders) == 1:
+    if len(loaders) == 1 and not cfg['LOADER'].get('JOINT', False):
         return list(loaders.values())[0]
     else:
         return JointLoader(
