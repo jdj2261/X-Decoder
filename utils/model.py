@@ -53,6 +53,25 @@ def align_and_update_state_dicts(model_state_dict, ckpt_state_dict):
                         model_key, model_weight.shape, ckpt_weight.shape
                     )
                 )
+        elif "encoder" in model_key:
+            encoder_weight_name = '.'.join(model_key.split('.')[2:])
+            for key in ckpt_keys:
+                if encoder_weight_name in key:
+                    ckpt_weight = ckpt_state_dict[key]
+                    if model_weight.shape == ckpt_weight.shape:
+                        result_dicts[model_key] = ckpt_weight
+                        ckpt_keys.pop(ckpt_keys.index(key))
+                        matched_log.append(
+                            "Loaded {}, Model Shape: {} <-> Ckpt Shape: {}".format(
+                                model_key, model_weight.shape, ckpt_weight.shape
+                            )
+                        )
+                    else:
+                        unmatched_log.append(
+                            "*UNMATCHED* {}, Model Shape: {} <-> Ckpt Shape: {}".format(
+                                model_key, model_weight.shape, ckpt_weight.shape
+                            )
+                        )
         else:
             unloaded_log.append(
                 "*UNLOADED* {}, Model Shape: {}".format(model_key, model_weight.shape)

@@ -243,42 +243,42 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                 # update
                 self.train_step(batch)
 
-        #         current_optim_steps = self._get_and_validate_current_optim_steps()
+                current_optim_steps = self._get_and_validate_current_optim_steps()
                 
-        #         # logging
-        #         if prev_optim_steps != current_optim_steps:  # an optimizer update was made
-        #             log_first = self.opt.get("LOG_FIRST", 10)
-        #             log_every = self.opt.get("LOG_EVERY", 100)
-        #             if (current_optim_steps % log_every == 0) or (epoch == 0 and current_optim_steps <= log_first): # print logging
+                # logging
+                if prev_optim_steps != current_optim_steps:  # an optimizer update was made
+                    log_first = self.opt.get("LOG_FIRST", 10)
+                    log_every = self.opt.get("LOG_EVERY", 100)
+                    if (current_optim_steps % log_every == 0) or (epoch == 0 and current_optim_steps <= log_first): # print logging
 
-        #                 last_lr = {}
-        #                 for module_name in self.model_names:
-        #                     last_lr[module_name] = self.lr_schedulers[module_name].get_last_lr()[0]
+                        last_lr = {}
+                        for module_name in self.model_names:
+                            last_lr[module_name] = self.lr_schedulers[module_name].get_last_lr()[0]
 
-        #                 train_time_delta = (datetime.now() - train_prev_logged_time).total_seconds()
-        #                 train_prev_logged_time = datetime.now()
-        #                 MB = 1024.0 * 1024.0
-        #                 memory = torch.cuda.max_memory_allocated() / MB
+                        train_time_delta = (datetime.now() - train_prev_logged_time).total_seconds()
+                        train_prev_logged_time = datetime.now()
+                        MB = 1024.0 * 1024.0
+                        memory = torch.cuda.max_memory_allocated() / MB
 
-        #                 if self.opt['rank'] == 0:
-        #                     logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
-        #                                 f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
-        #                                 f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
-        #                                 # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
-        #                                 f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
-        #                                 f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
-        #                                 f"total items[{self.train_params['total_batch_size']}] "
-        #                                 f"mini batches[{self.train_params['num_updates']:6}] "
-        #                                 f"memory[{memory:.0f}] "
-        #                                 f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
+                        if self.opt['rank'] == 0:
+                            logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
+                                        f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
+                                        f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
+                                        # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
+                                        f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
+                                        f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
+                                        f"total items[{self.train_params['total_batch_size']}] "
+                                        f"mini batches[{self.train_params['num_updates']:6}] "
+                                        f"memory[{memory:.0f}] "
+                                        f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
 
-        #         # evaluate and save ckpt every epoch
-        #         if batch_idx + 1 == self.train_params['updates_per_epoch']:
-        #         # if batch_idx == 3:
-        #             results = self._eval_on_set(self.save_folder)
-        #             self.save_checkpoint(self.train_params['num_updates'])
-        #             break
+                # evaluate and save ckpt every epoch
+                if batch_idx + 1 == self.train_params['updates_per_epoch']:
+                # if batch_idx == 3:
+                    results = self._eval_on_set(self.save_folder)
+                    self.save_checkpoint(self.train_params['num_updates'])
+                    break
 
-        #     logger.info(f"This epoch takes {datetime.now() - epoch_start_time}")
-        #     logger.info(f"PROGRESS: {100.0 * (epoch + 1) / num_epochs:.2f}%")
-        #     logger.info(f"Config files are at {self.opt['conf_files']}")
+            logger.info(f"This epoch takes {datetime.now() - epoch_start_time}")
+            logger.info(f"PROGRESS: {100.0 * (epoch + 1) / num_epochs:.2f}%")
+            logger.info(f"Config files are at {self.opt['conf_files']}")
