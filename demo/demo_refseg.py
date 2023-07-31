@@ -99,7 +99,7 @@ def main(args=None):
         for idx, mask in enumerate(grd_mask):
             demo = visual.draw_binary_mask(
                 mask,
-                color=random_color(rgb=True, maximum=1).astype(np.int).tolist(),
+                color=random_color(rgb=True, maximum=1).astype(np.int64).tolist(),
                 text=text[idx],
                 alpha=0.3,
             )

@@ -70,7 +70,7 @@ def main(args=None):
         "tree",
     ]
     stuff_colors = [
-        random_color(rgb=True, maximum=255).astype(np.int).tolist()
+        random_color(rgb=True, maximum=255).astype(np.int64).tolist()
         for _ in range(len(stuff_classes))
     ]
     stuff_dataset_id_to_contiguous_id = {x: x for x in range(len(stuff_classes))}

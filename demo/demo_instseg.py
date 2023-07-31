@@ -60,7 +60,7 @@ def main(args=None):
 
     thing_classes = ["owl"]
     thing_colors = [
-        random_color(rgb=True, maximum=255).astype(np.int).tolist()
+        random_color(rgb=True, maximum=255).astype(np.int64).tolist()
         for _ in range(len(thing_classes))
     ]
     thing_dataset_id_to_contiguous_id = {x: x for x in range(len(thing_classes))}
