@@ -98,7 +98,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
             else:
                 loss = func(trainer, batch)
             return loss
-
         loss = forward(forward_func, self, batch)
         return loss
 
@@ -199,10 +198,11 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         self.models = {model_name: self.raw_models[model_name] for model_name in self.model_names}
         self._initialize_ddp()
 
-        if self.opt.get('WEIGHT', False):
-            self.load_weight(self.opt['RESUME_FROM'], must_exist=True)
-        if self.opt.get('RESUME', False):
-            self.load_checkpoint(self.opt['RESUME_FROM'], must_exist=True)
+        # TODO
+        # if self.opt.get('WEIGHT', False):
+        #     self.load_weight(self.opt['RESUME_FROM'], must_exist=True)
+        # if self.opt.get('RESUME', False):
+        #     self.load_checkpoint(self.opt['RESUME_FROM'], must_exist=True)
 
         ######################
         # Start the main loop
@@ -222,26 +222,26 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         Training
         """
         self.init_train()
-        # current_optim_steps = self._get_and_validate_current_optim_steps()
-        # num_epochs = self.opt['SOLVER']['MAX_NUM_EPOCHS']
+        current_optim_steps = self._get_and_validate_current_optim_steps()
+        num_epochs = self.opt['SOLVER']['MAX_NUM_EPOCHS']
 
-        # train_prev_logged_time = datetime.now()
-        # for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
-        #     self.train_params['current_epoch_idx'] = epoch
-        #     logger.info(f"Start epoch: {epoch} training.")
+        train_prev_logged_time = datetime.now()
+        for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
+            self.train_params['current_epoch_idx'] = epoch
+            logger.info(f"Start epoch: {epoch} training.")
             
-        #     epoch_start_time = datetime.now()
-        #     for batch_idx, batch in enumerate(self.train_dataloaders):
-        #         if self.train_params['current_epoch_idx'] == self.train_params['start_epoch_idx']:
-        #             if batch_idx < self.train_params['start_batch_idx']: # skip the first few batches for resuming
-        #                 continue
+            epoch_start_time = datetime.now()
+            for batch_idx, batch in enumerate(self.train_dataloaders):
+                if self.train_params['current_epoch_idx'] == self.train_params['start_epoch_idx']:
+                    if batch_idx < self.train_params['start_batch_idx']: # skip the first few batches for resuming
+                        continue
 
-        #         self.train_params['current_batch_idx'] = batch_idx
-        #         prev_optim_steps = current_optim_steps
-        #         prev_total_batch_size = self.train_params['total_batch_size']
+                self.train_params['current_batch_idx'] = batch_idx
+                prev_optim_steps = current_optim_steps
+                prev_total_batch_size = self.train_params['total_batch_size']
 
-        #         # update
-        #         self.train_step(batch)
+                # update
+                self.train_step(batch)
 
         #         current_optim_steps = self._get_and_validate_current_optim_steps()
                 

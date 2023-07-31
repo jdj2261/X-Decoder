@@ -70,6 +70,8 @@ class HDecoderPipeline:
                 self.train_loader = dataloader
                 logger.info(f'num of train samples: {len(dataloader)}')
             else:
+                if isinstance(dataloader, torch.utils.data.dataloader.DataLoader):
+                    self.train_loader = dataloader
                 dataloader = self.train_loader
                 
             # temp solution for lr scheduler

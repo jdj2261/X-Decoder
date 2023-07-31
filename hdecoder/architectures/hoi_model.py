@@ -98,7 +98,7 @@ class CDNHOI(nn.Module):
 
     def forward(self, batched_inputs):
         if self.training:
-            losses_hoi = self.forward_hoi(batched_inputs)
+            losses_hoi = self.forward_hoi(batched_inputs["vcoco"])
             return losses_hoi
         else:
             return self.evaluate_hoi(batched_inputs)

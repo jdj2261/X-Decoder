@@ -75,6 +75,23 @@ class JointLoader(torchdata.IterableDataset):
     def __len__(self):
         return len(getattr(self, self.key_dataset))
 
+class HoiLoader(torchdata.IterableDataset):
+    def __init__(self, loaders):
+        dataset_names = []
+        self.loaders = loaders
+        for key, loader in loaders.items():
+            name = "{}".format(key.split("_")[0])
+            setattr(self, name, loader)
+            dataset_names += [name]
+        self.dataset_names = dataset_names
+
+    def __iter__(self):
+        for batch in zip(*[getattr(self, name) for name in self.dataset_names]):
+            yield {key: batch[i] for i, key in enumerate(self.dataset_names)}
+
+    def __len__(self):
+        return len([self.loaders])
+
 
 def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     """
@@ -467,10 +484,11 @@ def build_train_dataloader(
             )
         elif mapper_name == "vcoco":
             mapper = VCOCODatasetMapper(cfg, True)
-            loaders[dataset_name] = build_detection_train_loader(
+            loaders["vcoco"] = build_detection_train_loader(
                 cfg, dataset_name, mapper=mapper
             )
-            return list(loaders.values())
+            # return list(loaders.values())[0]
+            return HoiLoader(loaders)
         else:
             mapper = None
             loaders[dataset_name] = build_detection_train_loader(
