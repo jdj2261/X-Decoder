@@ -53,6 +53,7 @@ from .evaluation import (
     CaptioningEvaluator,
     COCOPanopticEvaluator,
     GroundingEvaluator,
+    VCOCOEvaluator,
 )
 from xdecoder.utils import configurable
 from utils.distributed import get_world_size
@@ -529,102 +530,107 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
     if evaluator_type == "coco":
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
-    cfg_model_decoder_test = cfg["MODEL"]["DECODER"]["TEST"]
-    # panoptic segmentation
-    if evaluator_type in [
-        "coco_panoptic_seg",
-        "ade20k_panoptic_seg",
-        "cityscapes_panoptic_seg",
-        "mapillary_vistas_panoptic_seg",
-        "scannet_panoptic_seg",
-        "bdd_panoptic_pano",
-    ]:
-        if cfg_model_decoder_test["PANOPTIC_ON"]:
-            evaluator_list.append(COCOPanopticEvaluator(dataset_name, output_folder))
-    # COCO
-    if (
-        evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["INSTANCE_ON"]
-    ) or evaluator_type == "object365_od":
+    if evaluator_type == "vcoco":
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
-    if (
-        evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["SEMANTIC_ON"]
-    ) or evaluator_type == "coco_sem_seg":
-        evaluator_list.append(
-            SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
-        )
-    # Mapillary Vistas
-    if (
-        evaluator_type == "mapillary_vistas_panoptic_seg"
-        and cfg_model_decoder_test["INSTANCE_ON"]
-    ):
-        evaluator_list.append(
-            InstanceSegEvaluator(dataset_name, output_dir=output_folder)
-        )
-    if (
-        evaluator_type == "mapillary_vistas_panoptic_seg"
-        and cfg_model_decoder_test["SEMANTIC_ON"]
-    ):
-        evaluator_list.append(
-            SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
-        )
-    # Cityscapes
-    if evaluator_type == "cityscapes_instance":
-        assert (
-            torch.cuda.device_count() > comm.get_rank()
-        ), "CityscapesEvaluator currently do not work with multiple machines."
-        return CityscapesInstanceEvaluator(dataset_name)
-    if evaluator_type == "cityscapes_sem_seg":
-        assert (
-            torch.cuda.device_count() > comm.get_rank()
-        ), "CityscapesEvaluator currently do not work with multiple machines."
-        return CityscapesSemSegEvaluator(dataset_name)
-    if evaluator_type == "cityscapes_panoptic_seg":
-        if cfg_model_decoder_test["SEMANTIC_ON"]:
+
+    cfg_model_decoder_test = cfg["MODEL"]["DECODER"].get("TEST", None)
+
+    if cfg_model_decoder_test:
+        # panoptic segmentation
+        if evaluator_type in [
+            "coco_panoptic_seg",
+            "ade20k_panoptic_seg",
+            "cityscapes_panoptic_seg",
+            "mapillary_vistas_panoptic_seg",
+            "scannet_panoptic_seg",
+            "bdd_panoptic_pano",
+        ]:
+            if cfg_model_decoder_test["PANOPTIC_ON"]:
+                evaluator_list.append(COCOPanopticEvaluator(dataset_name, output_folder))
+        # COCO
+        if (
+            evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["INSTANCE_ON"]
+        ) or evaluator_type == "object365_od":
+            evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
+        if (
+            evaluator_type == "coco_panoptic_seg" and cfg_model_decoder_test["SEMANTIC_ON"]
+        ) or evaluator_type == "coco_sem_seg":
+            evaluator_list.append(
+                SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
+            )
+        # Mapillary Vistas
+        if (
+            evaluator_type == "mapillary_vistas_panoptic_seg"
+            and cfg_model_decoder_test["INSTANCE_ON"]
+        ):
+            evaluator_list.append(
+                InstanceSegEvaluator(dataset_name, output_dir=output_folder)
+            )
+        if (
+            evaluator_type == "mapillary_vistas_panoptic_seg"
+            and cfg_model_decoder_test["SEMANTIC_ON"]
+        ):
+            evaluator_list.append(
+                SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder)
+            )
+        # Cityscapes
+        if evaluator_type == "cityscapes_instance":
             assert (
                 torch.cuda.device_count() > comm.get_rank()
             ), "CityscapesEvaluator currently do not work with multiple machines."
-            evaluator_list.append(CityscapesSemSegEvaluator(dataset_name))
-        if cfg_model_decoder_test["INSTANCE_ON"]:
+            return CityscapesInstanceEvaluator(dataset_name)
+        if evaluator_type == "cityscapes_sem_seg":
             assert (
                 torch.cuda.device_count() > comm.get_rank()
             ), "CityscapesEvaluator currently do not work with multiple machines."
-            evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
-    # ADE20K
-    if (
-        evaluator_type == "ade20k_panoptic_seg"
-        and cfg_model_decoder_test["INSTANCE_ON"]
-    ):
-        evaluator_list.append(
-            InstanceSegEvaluator(dataset_name, output_dir=output_folder)
-        )
-    # SEGINW
-    if evaluator_type == "seginw" and cfg_model_decoder_test["INSTANCE_ON"]:
-        evaluator_list.append(
-            InstanceSegEvaluator(dataset_name, output_dir=output_folder)
-        )
-    # LVIS
-    if evaluator_type == "lvis":
-        return LVISEvaluator(dataset_name, output_dir=output_folder)
-    # Classification
-    if evaluator_type == "classification":
-        evaluator_list.append(ClassificationEvaluator(dataset_name, output_folder))
-    # Retrieval
-    if evaluator_type == "retrieval":
-        evaluator_list.append(
-            RetrievalEvaluator(
-                dataset_name,
-                output_folder,
-                cfg["MODEL"]["DECODER"]["RETRIEVAL"]["ENSEMBLE"],
+            return CityscapesSemSegEvaluator(dataset_name)
+        if evaluator_type == "cityscapes_panoptic_seg":
+            if cfg_model_decoder_test["SEMANTIC_ON"]:
+                assert (
+                    torch.cuda.device_count() > comm.get_rank()
+                ), "CityscapesEvaluator currently do not work with multiple machines."
+                evaluator_list.append(CityscapesSemSegEvaluator(dataset_name))
+            if cfg_model_decoder_test["INSTANCE_ON"]:
+                assert (
+                    torch.cuda.device_count() > comm.get_rank()
+                ), "CityscapesEvaluator currently do not work with multiple machines."
+                evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
+        # ADE20K
+        if (
+            evaluator_type == "ade20k_panoptic_seg"
+            and cfg_model_decoder_test["INSTANCE_ON"]
+        ):
+            evaluator_list.append(
+                InstanceSegEvaluator(dataset_name, output_dir=output_folder)
             )
-        )
-    if evaluator_type == "captioning":
-        evaluator_list.append(
-            CaptioningEvaluator(
-                dataset_name, output_folder, MetadataCatalog.get(dataset_name).gt_json
+        # SEGINW
+        if evaluator_type == "seginw" and cfg_model_decoder_test["INSTANCE_ON"]:
+            evaluator_list.append(
+                InstanceSegEvaluator(dataset_name, output_dir=output_folder)
             )
-        )
-    if evaluator_type in ["grounding_refcoco", "grounding_phrasecut"]:
-        evaluator_list.append(GroundingEvaluator(dataset_name))
+        # LVIS
+        if evaluator_type == "lvis":
+            return LVISEvaluator(dataset_name, output_dir=output_folder)
+        # Classification
+        if evaluator_type == "classification":
+            evaluator_list.append(ClassificationEvaluator(dataset_name, output_folder))
+        # Retrieval
+        if evaluator_type == "retrieval":
+            evaluator_list.append(
+                RetrievalEvaluator(
+                    dataset_name,
+                    output_folder,
+                    cfg["MODEL"]["DECODER"]["RETRIEVAL"]["ENSEMBLE"],
+                )
+            )
+        if evaluator_type == "captioning":
+            evaluator_list.append(
+                CaptioningEvaluator(
+                    dataset_name, output_folder, MetadataCatalog.get(dataset_name).gt_json
+                )
+            )
+        if evaluator_type in ["grounding_refcoco", "grounding_phrasecut"]:
+            evaluator_list.append(GroundingEvaluator(dataset_name))
 
     if len(evaluator_list) == 0:
         raise NotImplementedError(

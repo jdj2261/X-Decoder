@@ -4,8 +4,9 @@ import copy
 from collections import defaultdict
 
 from datasets.utils.misc import all_gather, MetricLogger
+from detectron2.evaluation.evaluator import DatasetEvaluator
 
-class VCOCOEvaluator():
+class VCOCOEvaluator(DatasetEvaluator):
 
     def __init__(self, preds, gts, correct_mat, use_nms_filter=False):
         self.overlap_iou = 0.5
@@ -23,6 +24,8 @@ class VCOCOEvaluator():
                              'point_instr', 'read_obj', 'snowboard_instr']
         self.thesis_map_indices = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 20, 21, 22, 24, 25, 27, 28]
 
+
+    def process(self, preds, gts):
         self.preds = []
         for img_preds in preds:
             img_preds = {k: v.to('cpu').numpy() for k, v in img_preds.items()}
