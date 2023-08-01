@@ -10,7 +10,7 @@ import torch.utils.data as torchdata
 
 import detectron2.utils.comm as comm
 from detectron2.data.build import (
-    build_batch_data_loader,
+    # build_batch_data_loader,
     load_proposals_into_dataset,
     trivial_batch_collator,
 )
@@ -57,7 +57,7 @@ from .evaluation import (
 )
 from xdecoder.utils import configurable
 from utils.distributed import get_world_size
-
+from torch.utils.data import DataLoader
 
 class JointLoader(torchdata.IterableDataset):
     def __init__(self, loaders, key_dataset):
@@ -270,6 +270,47 @@ def build_detection_test_loader(
         collate_fn=trivial_batch_collator if collate_fn is None else collate_fn,
     )
 
+def build_batch_data_loader(
+    dataset,
+    sampler,
+    total_batch_size,
+    *,
+    num_workers=0,
+    collate_fn=None,
+):
+    """
+    Build a batched dataloader. The main differences from `torch.utils.data.DataLoader` are:
+    1. support aspect ratio grouping options
+    2. use no "batch collation", because this is common for detection training
+
+    Args:
+        dataset (torch.utils.data.Dataset): a pytorch map-style or iterable dataset.
+        sampler (torch.utils.data.sampler.Sampler or None): a sampler that produces indices.
+            Must be provided iff. ``dataset`` is a map-style dataset.
+        total_batch_size, aspect_ratio_grouping, num_workers, collate_fn: see
+            :func:`build_detection_train_loader`.
+
+    Returns:
+        iterable[list]. Length of each list is the batch size of the current
+            GPU. Each element in the list comes from the dataset.
+    """
+    world_size = get_world_size()
+    assert (
+        total_batch_size > 0 and total_batch_size % world_size == 0
+    ), "Total batch size ({}) must be divisible by the number of gpus ({}).".format(
+        total_batch_size, world_size
+    )
+    batch_size = total_batch_size // world_size
+    sampler_train = torch.utils.data.RandomSampler(dataset)
+    batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, total_batch_size, drop_last=True)
+
+    return DataLoader(
+        dataset, 
+        batch_sampler=batch_sampler_train, 
+        collate_fn=trivial_batch_collator if collate_fn is None else collate_fn, 
+        num_workers=num_workers
+    )
+
 
 def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sampler=None):
     cfg_datasets = cfg["DATASETS"]
@@ -289,6 +330,7 @@ def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sample
         sampler_name = cfg_dataloader["SAMPLER_TRAIN"]
         logger = logging.getLogger(__name__)
         logger.info("Using training sampler {}".format(sampler_name))
+        print(f"Dataset length: {len(dataset)}")
         sampler = TrainingSampler(len(dataset))
 
     return {
@@ -349,7 +391,6 @@ def build_detection_train_loader(
         dataset,
         sampler,
         total_batch_size,
-        aspect_ratio_grouping=aspect_ratio_grouping,
         num_workers=num_workers,
     )
 
@@ -435,6 +476,33 @@ def build_eval_dataloader(
     return dataloaders
 
 
+def build_dataset_length(cfg):
+    return get_dataset_length(cfg)
+
+
+def _dataset_length_from_config(cfg, dataset=None):
+    cfg_datasets = cfg["DATASETS"]
+    cfg_dataloader = cfg["DATALOADER"]
+
+    if dataset is None:
+        dataset = get_detection_dataset_dicts(
+            "vcoco_train",
+            filter_empty=cfg_dataloader['FILTER_EMPTY_ANNOTATIONS'],
+            proposal_files=cfg_datasets['PROPOSAL_FILES_TRAIN'] if cfg_dataloader['LOAD_PROPOSALS'] else None,
+        )
+
+    return {
+        "dataset": dataset,
+    }
+
+
+@configurable(from_config=_dataset_length_from_config)
+def get_dataset_length(
+    dataset
+):
+    return len(dataset)
+
+
 def build_train_dataloader(
     cfg,
 ):
@@ -488,8 +556,8 @@ def build_train_dataloader(
             loaders["vcoco"] = build_detection_train_loader(
                 cfg, dataset_name, mapper=mapper
             )
-            # return list(loaders.values())[0]
             return HoiLoader(loaders)
+            # return list(loaders.values())[0]
         else:
             mapper = None
             loaders[dataset_name] = build_detection_train_loader(

@@ -24,7 +24,7 @@ from detectron2.data import MetadataCatalog
 from hdecoder import build_model
 from hdecoder.utils import get_class_names
 from hdecoder.BaseModel import BaseModel
-from datasets import build_evaluator, build_eval_dataloader, build_train_dataloader
+from datasets import build_evaluator, build_eval_dataloader, build_train_dataloader, build_dataset_length
 from utils.distributed import is_main_process
 from utils.constants import COCO_PANOPTIC_CLASSES
 from trainer.utils.misc import move_batch_to_device, cast_batch_to_half
@@ -37,7 +37,8 @@ logger = logging.getLogger(__name__)
 class HDecoderPipeline:
     def __init__(self, opt):
         self._opt = opt
-
+        self.dataset_length = build_dataset_length(self._opt)
+        
     def initialize_model(self):
         model_name = "default"
         model = build_model(self._opt)
@@ -68,14 +69,15 @@ class HDecoderPipeline:
             if not hasattr(self, 'train_loader'):
                 dataloader = build_train_dataloader(self._opt)
                 self.train_loader = dataloader
-                logger.info(f'num of train samples: {len(dataloader)}')
+                logger.info(f'num of train samples: {self.dataset_length}')
+                print(f'num of train samples: {self.dataset_length}')
             else:
                 if isinstance(dataloader, torch.utils.data.dataloader.DataLoader):
                     self.train_loader = dataloader
                 dataloader = self.train_loader
                 
             # temp solution for lr scheduler
-            steps_total = len(self.train_loader)
+            steps_total = self.dataset_length
             steps_acc = self._opt['GRADIENT_ACCUMULATE_STEP']
             steps_update = steps_total // steps_acc
             self._opt["LR_SCHEDULER_PARAMS"]["steps_update_per_epoch"] = steps_update
@@ -101,10 +103,11 @@ class HDecoderPipeline:
             # in FP16 mode, DeepSpeed casts the model to FP16, so the input needs to be manually casted to FP16
             batch = cast_batch_to_half(batch)
         loss = trainer.compute_loss(self.forward_func, batch)
+        total_loss = sum(loss for loss in loss.values())
         loss_info = {k: v.detach().item() for k,v in loss.items()}
         sample_size_info = {'num_samples': len(batch)}
-        loss = sum(loss for loss in loss.values())
-        trainer.backward_loss(loss, model_names=['default'])
+        # loss = sum(loss for loss in loss.values())
+        trainer.backward_loss(total_loss, model_names=['default'])
         trainer.update_model(model_name='default')
         return loss_info, sample_size_info, extra_info
 

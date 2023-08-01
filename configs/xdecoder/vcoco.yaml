@@ -23,7 +23,7 @@ PYLEARN_MODEL: '' # model resume when evaluation
 DONT_LOAD_MODEL: true
 
 # Logging and Debug
-LOG_EVERY: 500
+LOG_EVERY: 100
 FIND_UNUSED_PARAMETERS: false
 
 # Speed up training
@@ -126,10 +126,10 @@ DATASETS:
 
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: False
-  NUM_WORKERS: 16
+  NUM_WORKERS: 1
   LOAD_PROPOSALS: False
   SAMPLER_TRAIN: "TrainingSampler"
-  ASPECT_RATIO_GROUPING: True
+  ASPECT_RATIO_GROUPING: False
 
 # Detectron2 training config for optimizer and lr scheduler
 SOLVER:
@@ -142,7 +142,9 @@ SOLVER:
   WARMUP_METHOD: "linear"
   WEIGHT_DECAY: 0.05
   OPTIMIZER: "ADAMW"
-  LR_SCHEDULER_NAME: "WarmupMultiStepLR"
+  # LR_SCHEDULER_NAME: "WarmupMultiStepLR"
+  LR_SCHEDULER_NAME: "StepLR"
+  LR_DROP: 60
   LR_MULTIPLIER:
     backbone: 0.1
     lang_encoder: 0.1
@@ -155,7 +157,7 @@ SOLVER:
     NORM_TYPE: 2.0
   AMP:
     ENABLED: True
-  MAX_NUM_EPOCHS: 50
+  MAX_NUM_EPOCHS: 90 #50
 
 VCOCO:
   INPUT:

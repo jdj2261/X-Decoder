@@ -124,7 +124,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
         self.optimizers[model_name].zero_grad()
         self.train_params['optim_steps'][model_name] += 1
-        self.lr_schedulers[model_name].step()
+        # self.lr_schedulers[model_name].step()
 
     def train_step(self, batch):
         self.grad_acc_batches.append(batch) # support batch accumulation
@@ -134,7 +134,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
             for model_name in self.model_names:
                 self.models[model_name].train()
 
-            assert len(self.grad_acc_batches) == self.grad_acc_steps
+            # assert len(self.grad_acc_batches) == self.grad_acc_steps
 
             total_batch_sample = 0
             for batch_index, batch in enumerate(self.grad_acc_batches):
@@ -145,7 +145,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                                             self.grad_acc_batches,
                                             batch_index,
                                             is_distributed=(self.opt['world_size'] > 1))
-
+                # print(loss_info)
                 self.train_loss.update_iter(loss_info)
                 total_batch_sample += sample_size_info['num_samples']
 
@@ -162,7 +162,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
             self.train_params['total_batch_size'] += total_batch_sample
             self.grad_acc_batches = []
 
-        self.train_params['num_updates'] += 1
+        # self.train_params['num_updates'] += 1
         
     def init_train(self):
         self.mode = "train"
@@ -177,8 +177,9 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
             self.raw_models[module_name].to(self.opt['device'])
 
         self.train_dataloaders = self.pipeline.get_dataloaders(self, 'train', is_evaluation=False)
+        self.dataset_length = self.pipeline.dataset_length
         self.train_params = {
-                             "updates_per_epoch": len(self.train_dataloaders),
+                             "updates_per_epoch": self.dataset_length,
                              "total_batch_size": 0,
                              "num_updates": 0,
                              "optim_steps": {module_name: 0 for module_name in self.model_names},
@@ -226,6 +227,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         num_epochs = self.opt['SOLVER']['MAX_NUM_EPOCHS']
 
         train_prev_logged_time = datetime.now()
+
         for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
             self.train_params['current_epoch_idx'] = epoch
             logger.info(f"Start epoch: {epoch} training.")
@@ -261,7 +263,8 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                         memory = torch.cuda.max_memory_allocated() / MB
 
                         if self.opt['rank'] == 0:
-                            logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
+                            print(
+                                f"epochs[{epoch:6}] optim steps[{batch_idx+1:.0f}/{self.dataset_length}] "
                                         f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
                                         f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
                                         # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
@@ -271,14 +274,26 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                                         f"mini batches[{self.train_params['num_updates']:6}] "
                                         f"memory[{memory:.0f}] "
                                         f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
+                            
+                            # logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
+                            #             f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
+                            #             f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
+                            #             # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
+                            #             f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
+                            #             f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
+                            #             f"total items[{self.train_params['total_batch_size']}] "
+                            #             f"mini batches[{self.train_params['num_updates']:6}] "
+                            #             f"memory[{memory:.0f}] "
+                            #             f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
 
                 # evaluate and save ckpt every epoch
-                if batch_idx + 1 == self.train_params['updates_per_epoch']:
-                # if batch_idx == 3:
-                    results = self._eval_on_set(self.save_folder)
-                    self.save_checkpoint(self.train_params['num_updates'])
-                    break
+                # if batch_idx + 1 == self.train_params['updates_per_epoch']:
+                # # if batch_idx == 3:
+                #     results = self._eval_on_set(self.save_folder)
+                #     self.save_checkpoint(self.train_params['num_updates'])
+                #     break
 
+            self.lr_schedulers['default'].step()
             logger.info(f"This epoch takes {datetime.now() - epoch_start_time}")
             logger.info(f"PROGRESS: {100.0 * (epoch + 1) / num_epochs:.2f}%")
             logger.info(f"Config files are at {self.opt['conf_files']}")

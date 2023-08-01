@@ -163,14 +163,14 @@ class HDecoder_Trainer(DefaultTrainer):
             self.optimizers[_module_name].zero_grad()
 
         num_epoch = self.opt['SOLVER']['MAX_NUM_EPOCHS']
-        cfg_solver['MAX_ITER'] = num_epoch * self.train_params['updates_per_epoch']
+        cfg_solver['MAX_ITER'] = num_epoch * self.train_params['updates_per_epoch'] * 100
         cfg_solver['STEPS'] = [int(x*cfg_solver['MAX_ITER']) for x in cfg_solver['STEPS']]
         logger.info(f"Calculate MAX_ITER @ {cfg_solver['MAX_ITER']} and STEPS @ {cfg_solver['STEPS']}")
 
         for module_name in self.model_names:
             scheduler_cfg = CfgNode({'SOLVER': cfg_solver})
-            self.lr_schedulers[module_name] = build_lr_scheduler(scheduler_cfg, self.optimizers[module_name])
-
+            # self.lr_schedulers[module_name] = build_lr_scheduler(scheduler_cfg, self.optimizers[module_name])
+            self.lr_schedulers[module_name] = torch.optim.lr_scheduler.StepLR(self.optimizers[module_name], cfg_solver['LR_DROP'])
         for module_name in self.model_names:
             num_params = 0
             num_trainable_params = 0
