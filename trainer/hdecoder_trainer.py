@@ -87,6 +87,7 @@ class HDecoder_Trainer(DefaultTrainer):
                     flag_continue = False
                     continue
 
+                # INFO: Freeze 시키는 곳
                 for key, value in fix_param.items():
                     if key in name and value == True:
                         param.requires_grad = False

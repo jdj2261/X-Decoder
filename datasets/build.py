@@ -91,7 +91,7 @@ class HoiLoader(torchdata.IterableDataset):
             yield {key: batch[i] for i, key in enumerate(self.dataset_names)}
 
     def __len__(self):
-        return len([self.loaders])
+        return len(getattr(self, self.dataset_names[0]))
 
 
 def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
@@ -275,6 +275,7 @@ def build_batch_data_loader(
     sampler,
     total_batch_size,
     *,
+    aspect_ratio_grouping=False,
     num_workers=0,
     collate_fn=None,
 ):
@@ -302,7 +303,7 @@ def build_batch_data_loader(
     )
     batch_size = total_batch_size // world_size
     sampler_train = torch.utils.data.RandomSampler(dataset)
-    batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, total_batch_size, drop_last=True)
+    batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, batch_size, drop_last=True)
 
     return DataLoader(
         dataset, 
@@ -331,7 +332,7 @@ def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sample
         logger = logging.getLogger(__name__)
         logger.info("Using training sampler {}".format(sampler_name))
         print(f"Dataset length: {len(dataset)}")
-        sampler = TrainingSampler(len(dataset))
+        # sampler = TrainingSampler(len(dataset))
 
     return {
         "dataset": dataset,
@@ -384,13 +385,19 @@ def build_detection_train_loader(
         dataset = DatasetFromList(dataset, copy=False)
     if mapper is not None:
         dataset = MapDataset(dataset, mapper)
+
+    # Changed
     if sampler is None:
-        sampler = TrainingSampler(len(dataset))
+        # sampler = TrainingSampler(len(dataset))
+        sampler_train = torch.utils.data.RandomSampler(dataset)
+        sampler = torch.utils.data.BatchSampler(sampler_train, total_batch_size, drop_last=True)
+
     assert isinstance(sampler, torch.utils.data.sampler.Sampler)
     return build_batch_data_loader(
         dataset,
         sampler,
         total_batch_size,
+        aspect_ratio_grouping=aspect_ratio_grouping,
         num_workers=num_workers,
     )
 
@@ -476,33 +483,6 @@ def build_eval_dataloader(
     return dataloaders
 
 
-def build_dataset_length(cfg):
-    return get_dataset_length(cfg)
-
-
-def _dataset_length_from_config(cfg, dataset=None):
-    cfg_datasets = cfg["DATASETS"]
-    cfg_dataloader = cfg["DATALOADER"]
-
-    if dataset is None:
-        dataset = get_detection_dataset_dicts(
-            "vcoco_train",
-            filter_empty=cfg_dataloader['FILTER_EMPTY_ANNOTATIONS'],
-            proposal_files=cfg_datasets['PROPOSAL_FILES_TRAIN'] if cfg_dataloader['LOAD_PROPOSALS'] else None,
-        )
-
-    return {
-        "dataset": dataset,
-    }
-
-
-@configurable(from_config=_dataset_length_from_config)
-def get_dataset_length(
-    dataset
-):
-    return len(dataset)
-
-
 def build_train_dataloader(
     cfg,
 ):
@@ -556,8 +536,8 @@ def build_train_dataloader(
             loaders["vcoco"] = build_detection_train_loader(
                 cfg, dataset_name, mapper=mapper
             )
+            # TODO 나중에 JointLoader로 통일
             return HoiLoader(loaders)
-            # return list(loaders.values())[0]
         else:
             mapper = None
             loaders[dataset_name] = build_detection_train_loader(
@@ -599,7 +579,10 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
     if evaluator_type == "vcoco":
-        evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
+        evaluator_list.append(VCOCOEvaluator(
+            dataset_name, 
+            correct_mat_dir=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).correct_mat_dir,
+            output_dir=output_folder))
 
     cfg_model_decoder_test = cfg["MODEL"]["DECODER"].get("TEST", None)
 

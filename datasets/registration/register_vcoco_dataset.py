@@ -9,8 +9,13 @@ _PREDEFINED_SPLITS_VCOCO_CAPTION = {
     "vcoco_train": (
         "v-coco/images/train2014",
         "v-coco/annotations/trainval_vcoco.json",
+        None
     ),
-    "vcoco_val": ("v-coco/images/val2014", "v-coco/annotations/test_vcoco.json"),
+    "vcoco_val": (
+        "v-coco/images/val2014", 
+        "v-coco/annotations/test_vcoco.json", 
+        "v-coco/annotations/corre_vcoco.npy"
+    )
 }
 
 
@@ -150,7 +155,7 @@ def get_metadata():
     return meta
 
 
-def register_vcoco(name, metadata, image_root, annot_json):
+def register_vcoco(name, metadata, image_root, annot_json, correct_mat_dir=None):
     DatasetCatalog.register(
         name,
         lambda: load_vcoco_json(image_root, annot_json),
@@ -159,6 +164,7 @@ def register_vcoco(name, metadata, image_root, annot_json):
         image_root=image_root,
         json_file=annot_json,
         evaluator_type="vcoco",
+        correct_mat_dir=correct_mat_dir,
         ignore_label=255,
         label_divisor=1000,
         **metadata,
@@ -168,13 +174,16 @@ def register_vcoco(name, metadata, image_root, annot_json):
 def register_all_vcoco(root):
     for (
         prefix,
-        (image_root, annot_root),
+        (image_root, annot_root, correct_mat_dir),
     ) in _PREDEFINED_SPLITS_VCOCO_CAPTION.items():
+        if correct_mat_dir:
+            correct_mat_dir = os.path.join(root, correct_mat_dir)
         register_vcoco(
             prefix,
             get_metadata(),
             os.path.join(root, image_root),
             os.path.join(root, annot_root),
+            correct_mat_dir
         )
 
 

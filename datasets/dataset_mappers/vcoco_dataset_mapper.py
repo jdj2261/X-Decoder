@@ -220,6 +220,8 @@ class VCOCODatasetMapper:
                 )
             target["hois"] = torch.as_tensor(hois, dtype=torch.int64)
 
+        dataset_dict['width'] = int(w)
+        dataset_dict['height'] = int(h)
         dataset_dict["image"] = img
         dataset_dict["instances"] = target
         return dataset_dict

@@ -99,6 +99,7 @@ class UtilsTrainer(DistributedTrainer):
             torch.distributed.barrier()
 
         if self.opt['rank'] == 0:
+            save_dir = os.path.abspath(save_dir)
             os.makedirs(save_dir, exist_ok=True)
 
         if self.opt['rank'] == 0:
@@ -144,7 +145,8 @@ class UtilsTrainer(DistributedTrainer):
         if self.opt['rank'] == 0:
             for module_name in self.model_names:
                 module_save_dir = os.path.join(save_dir, module_name)
-                self.raw_models[module_name].save_pretrained(module_save_dir)
+                save_path = os.path.join(module_save_dir, 'raw_model_states.pt')
+                self.raw_models[module_name].save_pretrained(save_path)
 
         if self.opt['rank'] == 0:
             # save the latest checkpoint location to json file

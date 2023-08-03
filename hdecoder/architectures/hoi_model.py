@@ -1,11 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from typing import Tuple
 
+import itertools
 import torch
 from torch import nn
 from torch.nn import functional as F
 
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks, BoxMode
+from detectron2.data import MetadataCatalog
 
 from .registry import register_model
 from ..utils import configurable, get_class_names
@@ -15,6 +17,9 @@ from ..body import build_hoi_head
 from ..modules.criterion import SetCriterionHOI
 from ..modules.matcher import HungarianMatcherHOI
 from ..modules.postprocessing import PostProcessHOI
+from datasets.utils.misc import all_gather
+from copy import deepcopy
+
 class CDNHOI(nn.Module):
     @configurable
     def __init__(
@@ -27,6 +32,7 @@ class CDNHOI(nn.Module):
         postprocessors,
         pixel_mean: Tuple[float],
         pixel_std: Tuple[float],
+        metadata
 
     ):
         super().__init__()
@@ -35,6 +41,7 @@ class CDNHOI(nn.Module):
         self.criterion = criterion
         self.losses = losses
         self.postprocessors = postprocessors
+        self.metadata = metadata
 
         self.register_buffer(
             "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
@@ -90,18 +97,20 @@ class CDNHOI(nn.Module):
             "postprocessors": postprocessors,
             "pixel_mean": pixel_mean,
             "pixel_std": pixel_mean,
+            "metadata": MetadataCatalog.get(cfg['DATASETS']['TRAIN'][0])
         }
 
     @property
     def device(self):
         return self.pixel_mean.device
 
-    def forward(self, batched_inputs):
+    def forward(self, batched_inputs, mode=None):
         if self.training:
             losses_hoi = self.forward_hoi(batched_inputs["vcoco"])
             return losses_hoi
         else:
-            return self.evaluate_hoi(batched_inputs)
+            if mode == "vcoco":
+                return self.evaluate_hoi(batched_inputs)
         
     def forward_hoi(self, batched_inputs):
         assert "instances" in batched_inputs[0]
@@ -126,7 +135,17 @@ class CDNHOI(nn.Module):
             targets = batch_per_image["instances"]
             new_targets.append({k: v.to(self.device) for k, v in targets.items() if k != 'filename'})
         return new_targets
+    
+    def _prepare_eval_targets(self, batched_inputs):
+        new_targets = []
+        for idx, batch_per_image in enumerate(batched_inputs):
+            targets = batch_per_image["instances"]
+            for k, v in targets.items():
+                if k != 'filename' and k != 'id' and k != 'img_id':
+                    new_targets.append({k: v})
+        return new_targets
             
+
     def evaluate_hoi(self, batched_inputs):
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
@@ -140,8 +159,17 @@ class CDNHOI(nn.Module):
 
         # TODO
         results = self.postprocessors(outputs, orig_target_sizes)
-        print(results)
+
         return results
+
+        # processed_results = []
+        # processed_results.append({})
+
+        # processed_results[-1]["predicts"] = list(itertools.chain.from_iterable(all_gather(results)))
+
+        # targets = self._prepare_eval_targets(batched_inputs)
+        # processed_results[-1]["gts"] = list(itertools.chain.from_iterable(all_gather(deepcopy(targets))))
+        # return processed_results
     
     def hoi_inference(self):
         pass

@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 import copy
+from copy import deepcopy
 from collections import defaultdict
 
 from datasets.utils.misc import all_gather, MetricLogger
@@ -8,7 +9,12 @@ from detectron2.evaluation.evaluator import DatasetEvaluator
 
 class VCOCOEvaluator(DatasetEvaluator):
 
-    def __init__(self, preds, gts, correct_mat, use_nms_filter=False):
+    def __init__(
+        self,
+        dataset_name,
+        correct_mat_dir=None,
+        output_dir=None,
+    ):
         self.overlap_iou = 0.5
         self.max_hois = 100
 
@@ -23,10 +29,35 @@ class VCOCOEvaluator(DatasetEvaluator):
                              'ski_instr', 'surf_instr', 'skateboard_instr', 'smile', 'drink_instr', 'kick_obj',
                              'point_instr', 'read_obj', 'snowboard_instr']
         self.thesis_map_indices = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 20, 21, 22, 24, 25, 27, 28]
+        self.correct_mat = np.load(correct_mat_dir)
 
+    def reset(self):
+        self._preds = []
+        self._gts = []
 
-    def process(self, preds, gts):
-        self.preds = []
+    @staticmethod
+    def _prepare_eval_targets(batched_inputs):
+        new_targets = []
+        for idx, batch_per_image in enumerate(batched_inputs):
+            targets = batch_per_image["instances"]
+            new_target = {}
+            for k, v in targets.items():
+                new_target[k] = v
+            new_targets.append(new_target)
+        return new_targets
+
+    def process(self, inputs, outputs):
+        self._preds.extend(list(itertools.chain.from_iterable(all_gather(outputs))))
+        targets = self._prepare_eval_targets(inputs)
+        self._gts.extend(list(itertools.chain.from_iterable(all_gather(deepcopy(targets)))))
+
+    def evaluate(self):
+        img_ids = [img_gts['id'] for img_gts in self._gts]
+        _, indices = np.unique(img_ids, return_index=True)
+        preds = [img_preds for i, img_preds in enumerate(self._preds) if i in indices]
+        gts = [img_gts for i, img_gts in enumerate(self._gts) if i in indices]
+
+        result_preds = []
         for img_preds in preds:
             img_preds = {k: v.to('cpu').numpy() for k, v in img_preds.items()}
             bboxes = [{'bbox': bbox, 'category_id': label} for bbox, label in zip(img_preds['boxes'], img_preds['labels'])]
@@ -42,7 +73,7 @@ class VCOCOEvaluator(DatasetEvaluator):
 
             if len(subject_ids) > 0:
                 object_labels = np.array([bboxes[object_id]['category_id'] for object_id in object_ids])
-                correct_mat = np.concatenate((correct_mat, np.ones((correct_mat.shape[0], 1))), axis=1)
+                correct_mat = np.concatenate((self.correct_mat, np.ones((self.correct_mat.shape[0], 1))), axis=1)
                 masks = correct_mat[verb_labels, object_labels]
                 hoi_scores *= masks
 
@@ -53,23 +84,22 @@ class VCOCOEvaluator(DatasetEvaluator):
             else:
                 hois = []
 
-            self.preds.append({
+            result_preds.append({
                 'predictions': bboxes,
                 'hoi_prediction': hois
             })
 
-        self.gts = []
+        result_gts = []
         for img_gts in gts:
             img_gts = {k: v.to('cpu').numpy() for k, v in img_gts.items() if k != 'id' and k != 'img_id' and k != 'filename'}
-            self.gts.append({
+            result_gts.append({
                 'annotations': [{'bbox': bbox, 'category_id': label} for bbox, label in zip(img_gts['boxes'], img_gts['labels'])],
                 'hoi_annotation': [{'subject_id': hoi[0], 'object_id': hoi[1], 'category_id': hoi[2]} for hoi in img_gts['hois']]
             })
-            for hoi in self.gts[-1]['hoi_annotation']:
+            for hoi in result_gts[-1]['hoi_annotation']:
                 self.sum_gts[hoi['category_id']] += 1
 
-    def evaluate(self):
-        for img_preds, img_gts in zip(self.preds, self.gts):
+        for img_preds, img_gts in zip(result_preds, result_gts):
             pred_bboxes = img_preds['predictions']
             gt_bboxes = img_gts['annotations']
             pred_hois = img_preds['hoi_prediction']
@@ -84,7 +114,7 @@ class VCOCOEvaluator(DatasetEvaluator):
                     self.score[pred_hoi['category_id']].append(pred_hoi['score'])
         map = self.compute_map()
         return map
-
+    
     def compute_map(self):
         print('------------------------------------------------------------')
         ap = defaultdict(lambda: 0)
@@ -230,36 +260,3 @@ class VCOCOEvaluator(DatasetEvaluator):
                 return intersect / (sum_area - intersect)
         else:
             return 0
-
-
-def evaluate_hoi(dataset_file, model, postprocessors, data_loader, subject_category_id, device, args):
-    model.eval()
-
-    metric_logger = MetricLogger(delimiter="  ")
-    header = 'Test:'
-
-    preds = []
-    gts = []
-    indices = []
-    for samples, targets in metric_logger.log_every(data_loader, 10, header):
-        samples = samples.to(device)
-
-        outputs = model(samples)
-        orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
-        results = postprocessors['hoi'](outputs, orig_target_sizes)
-
-        preds.extend(list(itertools.chain.from_iterable(all_gather(results))))
-        gts.extend(list(itertools.chain.from_iterable(all_gather(copy.deepcopy(targets)))))
-
-
-    metric_logger.synchronize_between_processes()
-
-    img_ids = [img_gts['id'] for img_gts in gts]
-    _, indices = np.unique(img_ids, return_index=True)
-    preds = [img_preds for i, img_preds in enumerate(preds) if i in indices]
-    gts = [img_gts for i, img_gts in enumerate(gts) if i in indices]
-
-    evaluator = VCOCOEvaluator(preds, gts, data_loader.dataset.correct_mat, use_nms_filter=args.use_nms_filter)
-    stats = evaluator.evaluate()
-
-    return stats

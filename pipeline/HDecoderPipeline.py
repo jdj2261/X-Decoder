@@ -17,16 +17,14 @@ from infinibatch import iterators
 
 from trainer.default_trainer import DefaultTrainer
 
-from detectron2.evaluation import inference_on_dataset
 from detectron2.utils.logger import log_every_n_seconds
 from detectron2.data import MetadataCatalog
 
 from hdecoder import build_model
 from hdecoder.utils import get_class_names
 from hdecoder.BaseModel import BaseModel
-from datasets import build_evaluator, build_eval_dataloader, build_train_dataloader, build_dataset_length
+from datasets import build_evaluator, build_eval_dataloader, build_train_dataloader
 from utils.distributed import is_main_process
-from utils.constants import COCO_PANOPTIC_CLASSES
 from trainer.utils.misc import move_batch_to_device, cast_batch_to_half
 
 from .utils.misc import hook_metadata, hook_switcher
@@ -37,8 +35,7 @@ logger = logging.getLogger(__name__)
 class HDecoderPipeline:
     def __init__(self, opt):
         self._opt = opt
-        self.dataset_length = build_dataset_length(self._opt)
-        
+
     def initialize_model(self):
         model_name = "default"
         model = build_model(self._opt)
@@ -69,15 +66,15 @@ class HDecoderPipeline:
             if not hasattr(self, 'train_loader'):
                 dataloader = build_train_dataloader(self._opt)
                 self.train_loader = dataloader
-                logger.info(f'num of train samples: {self.dataset_length}')
-                print(f'num of train samples: {self.dataset_length}')
+                logger.info(f'num of train samples: {len(dataloader)}')
+                print(f'num of train samples: {len(dataloader)}')
             else:
                 if isinstance(dataloader, torch.utils.data.dataloader.DataLoader):
                     self.train_loader = dataloader
                 dataloader = self.train_loader
                 
             # temp solution for lr scheduler
-            steps_total = self.dataset_length
+            steps_total = len(dataloader)
             steps_acc = self._opt['GRADIENT_ACCUMULATE_STEP']
             steps_update = steps_total // steps_acc
             self._opt["LR_SCHEDULER_PARAMS"]["steps_update_per_epoch"] = steps_update
@@ -111,6 +108,7 @@ class HDecoderPipeline:
         trainer.update_model(model_name='default')
         return loss_info, sample_size_info, extra_info
 
+    # TODO
     def evaluate_model(
         self,
         trainer: DefaultTrainer,
@@ -127,13 +125,9 @@ class HDecoderPipeline:
             eval_batch_gen = self.get_dataloaders(trainer, dataset_label, is_evaluation=True)
             self.evaluator.reset()
             with torch.no_grad():
-                names = get_class_names(dataset_label)
                 model.model.metadata = MetadataCatalog.get(dataset_label)
                 model.model.metadata = hook_metadata(model.model.metadata, dataset_label)
                 eval_type = model.model.metadata.evaluator_type
-                model.model.sem_seg_head.num_classes = len(names) - 1
-                model.model.sem_seg_head.predictor.lang_encoder.get_text_embeddings(names, is_eval=True)
-                hook_switcher(model, dataset_label)
                 total = len(eval_batch_gen)
                 num_warmup = min(5, total - 1)
                 start_time = time.perf_counter()
@@ -186,6 +180,13 @@ class HDecoderPipeline:
                             ),
                             n=5,
                         )
+                        print(f"Inference done {idx + 1}/{total}. "
+                              f"Dataloading: {data_seconds_per_iter:.4f} s/iter. "
+                              f"Inference: {compute_seconds_per_iter:.4f} s/iter. "
+                              f"Eval: {eval_seconds_per_iter:.4f} s/iter. "
+                              f"Total: {total_seconds_per_iter:.4f} s/iter. "
+                              f"ETA={eta}"
+                            )
                     start_data_time = time.perf_counter()
 
             results = self.evaluator.evaluate()
@@ -194,6 +195,5 @@ class HDecoderPipeline:
                 scores["{}/{}".format(dataset_label, eval_type)] = results
 
         # set back to training stat.
-        model.model.sem_seg_head.num_classes = self._opt['MODEL']['ENCODER']['NUM_CLASSES']
         model.model.metadata = MetadataCatalog.get(self._opt['DATASETS']['TRAIN'][0])
         return scores

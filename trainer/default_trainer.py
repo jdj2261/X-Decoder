@@ -83,9 +83,11 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
     def _eval_on_set(self, save_folder):
         logger.info(f"Evaluation start ...")
+        print(f"Evaluation start ...")
         results = self.pipeline.evaluate_model(self, save_folder)
         if self.opt['rank'] == 0:
             logger.info(results)
+            print(results)
         return results
 
     def compute_loss(self, forward_func, batch):
@@ -161,8 +163,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
             self.train_params['total_batch_size'] += total_batch_sample
             self.grad_acc_batches = []
-
-        # self.train_params['num_updates'] += 1
+        self.train_params['num_updates'] += 1
         
     def init_train(self):
         self.mode = "train"
@@ -177,7 +178,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
             self.raw_models[module_name].to(self.opt['device'])
 
         self.train_dataloaders = self.pipeline.get_dataloaders(self, 'train', is_evaluation=False)
-        self.dataset_length = self.pipeline.dataset_length
+        self.dataset_length = len(self.train_dataloaders)
         self.train_params = {
                              "updates_per_epoch": self.dataset_length,
                              "total_batch_size": 0,
@@ -200,10 +201,10 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         self._initialize_ddp()
 
         # TODO
-        # if self.opt.get('WEIGHT', False):
-        #     self.load_weight(self.opt['RESUME_FROM'], must_exist=True)
-        # if self.opt.get('RESUME', False):
-        #     self.load_checkpoint(self.opt['RESUME_FROM'], must_exist=True)
+        if self.opt.get('WEIGHT', False):
+            self.load_weight(self.opt['RESUME_FROM'], must_exist=True)
+        if self.opt.get('RESUME', False):
+            self.load_checkpoint(self.opt['RESUME_FROM'], must_exist=True)
 
         ######################
         # Start the main loop
@@ -287,11 +288,10 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                             #             f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
 
                 # evaluate and save ckpt every epoch
-                # if batch_idx + 1 == self.train_params['updates_per_epoch']:
-                # # if batch_idx == 3:
-                #     results = self._eval_on_set(self.save_folder)
-                #     self.save_checkpoint(self.train_params['num_updates'])
-                #     break
+                if batch_idx + 1 == self.train_params['updates_per_epoch']:
+                    results = self._eval_on_set(self.save_folder)
+                    self.save_checkpoint(self.train_params['num_updates'])
+                    break
 
             self.lr_schedulers['default'].step()
             logger.info(f"This epoch takes {datetime.now() - epoch_start_time}")
