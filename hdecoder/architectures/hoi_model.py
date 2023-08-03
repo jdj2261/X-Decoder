@@ -104,7 +104,7 @@ class CDNHOI(nn.Module):
     def device(self):
         return self.pixel_mean.device
 
-    def forward(self, batched_inputs, mode=None):
+    def forward(self, batched_inputs, mode="vcoco"):
         if self.training:
             losses_hoi = self.forward_hoi(batched_inputs["vcoco"])
             return losses_hoi

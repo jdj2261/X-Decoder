@@ -171,7 +171,14 @@ class HDecoder_Trainer(DefaultTrainer):
         for module_name in self.model_names:
             scheduler_cfg = CfgNode({'SOLVER': cfg_solver})
             # self.lr_schedulers[module_name] = build_lr_scheduler(scheduler_cfg, self.optimizers[module_name])
-            self.lr_schedulers[module_name] = torch.optim.lr_scheduler.StepLR(self.optimizers[module_name], cfg_solver['LR_DROP'])
+            if cfg_solver["LR_SCHEDULER_NAME"] == "StepLR":
+                self.lr_schedulers[module_name] = torch.optim.lr_scheduler.StepLR(self.optimizers[module_name], cfg_solver['LR_DROP'])
+            if cfg_solver["LR_SCHEDULER_NAME"] == "MultiStepLR":
+                self.lr_schedulers[module_name] = torch.optim.lr_scheduler.MultiStepLR(
+                    self.optimizers[module_name], 
+                    milestones=cfg_solver['LR_STEP'],
+                    gamma=cfg_solver['GAMMA'])
+
         for module_name in self.model_names:
             num_params = 0
             num_trainable_params = 0

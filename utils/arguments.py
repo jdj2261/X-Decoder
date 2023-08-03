@@ -150,7 +150,7 @@ def load_vcoco_opt_command(home_dir):
     )
 
     cmdline_args = parser.parse_args("")
-    cmdline_args.conf_files = [os.path.join(home_dir, "../configs/xdecoder/vcoco.yaml")]
+    cmdline_args.conf_files = [os.path.join(home_dir, "../configs/hdecoder/vcoco.yaml")]
     cmdline_args.overrides = [
         "WEIGHT",
         "../checkpoints/xdecoder_focalt_best_openseg.pt",

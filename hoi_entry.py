@@ -9,6 +9,7 @@ import os
 import sys
 import torch
 import logging
+import wandb
 
 from utils.arguments import load_opt_command
 
@@ -23,7 +24,9 @@ def main(args=None):
     2. Load the config file and set up the trainer.
     '''
 
+
     opt, cmdline_args = load_opt_command(args)
+
     command = cmdline_args.command
 
     if cmdline_args.user_dir:
@@ -39,7 +42,18 @@ def main(args=None):
         from trainer import HDecoder_Trainer as Trainer
     else:
         assert False, "The trainer type: {} is not defined!".format(opt['TRAINER'])
-    
+
+    # Add Wandb
+    if opt["WANDB"]:
+        import wandb
+        wdb = wandb
+        wdb.init(
+            config=opt,
+            project="X-Decoder_HOI_230803",
+            name=f'MODEL({opt["MODEL"]["NAME"]})_EPOCHS({opt["SOLVER"]["MAX_NUM_EPOCHS"]})_SCHEDULER({opt["SOLVER"]["LR_SCHEDULER_NAME"]}_{opt["SOLVER"]["LR_STEP"]})_LOG_EVERY({opt["LOG_EVERY"]})',
+        )
+        opt["WANDB"] = wdb
+
     trainer = Trainer(opt)
     os.environ['TORCH_DISTRIBUTED_DEBUG']='DETAIL'
 

@@ -17,6 +17,7 @@ import numpy as np
 import copy
 import contextlib
 import shutil
+import wandb
 from typing import Any, Callable, Union
 import torch
 import torch.nn as nn
@@ -54,6 +55,10 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         pipeline_class = getattr(pipeline_module, self.opt['PIPELINE'])
         logger.info(f"Pipeline for training: {self.opt['PIPELINE']}")
         self.pipeline = pipeline_class(self.opt)
+        
+        self.wdb = None
+        if opt["WANDB"]:
+            self.wdb:wandb = opt["WANDB"]
 
     def eval(self, ):
         logger.info('-----------------------------------------------')
@@ -87,7 +92,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         results = self.pipeline.evaluate_model(self, save_folder)
         if self.opt['rank'] == 0:
             logger.info(results)
-            print(results)
         return results
 
     def compute_loss(self, forward_func, batch):
@@ -264,8 +268,13 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                         memory = torch.cuda.max_memory_allocated() / MB
 
                         if self.opt['rank'] == 0:
-                            print(
-                                f"epochs[{epoch:6}] optim steps[{batch_idx+1:.0f}/{self.dataset_length}] "
+                            if self.wdb:
+                                self.wdb.log({"learning rate": list(last_lr.values())[0]})
+                                for key, obj in self.train_loss.losses.items():
+                                    average_name = key + "_avg"
+                                    self.wdb.log({average_name: obj.avg})
+                                    
+                            logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
                                         f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
                                         f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
                                         # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
@@ -275,21 +284,13 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                                         f"mini batches[{self.train_params['num_updates']:6}] "
                                         f"memory[{memory:.0f}] "
                                         f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
-                            
-                            # logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
-                            #             f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
-                            #             f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
-                            #             # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
-                            #             f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
-                            #             f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
-                            #             f"total items[{self.train_params['total_batch_size']}] "
-                            #             f"mini batches[{self.train_params['num_updates']:6}] "
-                            #             f"memory[{memory:.0f}] "
-                            #             f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
 
                 # evaluate and save ckpt every epoch
                 if batch_idx + 1 == self.train_params['updates_per_epoch']:
                     results = self._eval_on_set(self.save_folder)
+                    if self.wdb:
+                        self.wdb.log({"mAP_all": results['vcoco_val/vcoco']['mAP_all']})
+                        self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
                     self.save_checkpoint(self.train_params['num_updates'])
                     break
 

@@ -137,6 +137,8 @@ class HDecoderPipeline:
                 start_data_time = time.perf_counter()
                 
                 for idx, batch in enumerate(eval_batch_gen):
+                    if idx > 100:
+                        break
                     total_data_time += time.perf_counter() - start_data_time
                     if idx == num_warmup:
                         start_time = time.perf_counter()
@@ -180,17 +182,10 @@ class HDecoderPipeline:
                             ),
                             n=5,
                         )
-                        print(f"Inference done {idx + 1}/{total}. "
-                              f"Dataloading: {data_seconds_per_iter:.4f} s/iter. "
-                              f"Inference: {compute_seconds_per_iter:.4f} s/iter. "
-                              f"Eval: {eval_seconds_per_iter:.4f} s/iter. "
-                              f"Total: {total_seconds_per_iter:.4f} s/iter. "
-                              f"ETA={eta}"
-                            )
                     start_data_time = time.perf_counter()
 
             results = self.evaluator.evaluate()
-
+            
             if is_main_process():
                 scores["{}/{}".format(dataset_label, eval_type)] = results
 

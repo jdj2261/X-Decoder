@@ -187,5 +187,5 @@ def register_all_vcoco(root):
         )
 
 
-_root = os.getenv("DATASET", "../datasets")
+_root = os.getenv("DATASET", "./datasets")
 register_all_vcoco(_root)
