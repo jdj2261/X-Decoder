@@ -101,9 +101,11 @@ class HDecoderPipeline:
             batch = cast_batch_to_half(batch)
         loss = trainer.compute_loss(self.forward_func, batch)
         total_loss = sum(loss for loss in loss.values())
+
         loss_info = {k: v.detach().item() for k,v in loss.items()}
+        loss_info["total_loss"] = total_loss.detach().item()
         sample_size_info = {'num_samples': len(batch)}
-        # loss = sum(loss for loss in loss.values())
+        
         trainer.backward_loss(total_loss, model_names=['default'])
         trainer.update_model(model_name='default')
         return loss_info, sample_size_info, extra_info
@@ -137,8 +139,6 @@ class HDecoderPipeline:
                 start_data_time = time.perf_counter()
                 
                 for idx, batch in enumerate(eval_batch_gen):
-                    if idx > 100:
-                        break
                     total_data_time += time.perf_counter() - start_data_time
                     if idx == num_warmup:
                         start_time = time.perf_counter()

@@ -172,7 +172,7 @@ class UtilsTrainer(DistributedTrainer):
             ckpt = state['module']
             if get_world_size() <= 1:
                 ckpt = {key.replace('module.',''):ckpt[key] for key in ckpt.keys()}
-                
+            
             self.models[model_name].load_state_dict(ckpt)
             self.optimizers[model_name].load_state_dict(state['optimizer'])
             self.lr_schedulers[model_name].load_state_dict(state['lr_scheduler'])

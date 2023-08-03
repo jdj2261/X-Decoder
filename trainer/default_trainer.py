@@ -274,7 +274,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                                     average_name = key + "_avg"
                                     self.wdb.log({average_name: obj.avg})
                                     
-                            logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f}] "
+                            logger.info(f"epochs[{epoch:6}] optim steps[{current_optim_steps:.0f} / {self.dataset_length}] "
                                         f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
                                         f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
                                         # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "

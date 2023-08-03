@@ -13,7 +13,7 @@ PIPELINE: HDecoderPipeline
 TRAINER: hdecoder
 SAVE_DIR: '../data/output/test'
 base_path: "./"
-WANDB: false
+WANDB: true
 
 # Resume Logistic
 RESUME: false
@@ -113,8 +113,8 @@ MODEL:
     MATCHING_LOSS_COEF: 1
     EOS_COEF: 0.1
   FREEZE_NAME:
-    - "backbone"
-    - "encoder"
+    - "backbone": True
+    - "encoder": True
 INPUT:
   PIXEL_MEAN: [123.675, 116.280, 103.530]
   PIXEL_STD: [58.395, 57.120, 57.375]
@@ -143,7 +143,7 @@ SOLVER:
   WARMUP_FACTOR: 1.0
   WARMUP_ITERS: 10
   WARMUP_METHOD: "linear"
-  WEIGHT_DECAY: 0.05
+  WEIGHT_DECAY: 0.001
   OPTIMIZER: "ADAMW"
   # LR_SCHEDULER_NAME: "WarmupMultiStepLR"
   # LR_SCHEDULER_NAME: "StepLR"
@@ -183,7 +183,7 @@ VCOCO:
     SAMPLER_TRAIN: "TrainingSampler"
     ASPECT_RATIO_GROUPING: False
   TEST:
-    BATCH_SIZE_TOTAL: 2
+    BATCH_SIZE_TOTAL: 1
   TRAIN:
-    BATCH_SIZE_TOTAL: 2
+    BATCH_SIZE_TOTAL: 1
     BATCH_SIZE_PER_GPU: 1

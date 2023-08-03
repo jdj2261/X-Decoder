@@ -122,73 +122,39 @@ def load_opt_command(args):
     return opt, cmdline_args
 
 
-def load_vcoco_opt_command(home_dir):
-    parser = argparse.ArgumentParser(
-        description="Pretrain or fine-tune models for NLP tasks."
-    )
-    parser.add_argument(
-        "--command",
-        default="evaluate",
-        help="Command: train/evaluate/train-and-evaluate",
-    )
-    parser.add_argument(
-        "--conf_files", nargs="+", help="Path(s) to the config file(s)."
-    )
-    parser.add_argument(
-        "--user_dir",
-        help="Path to the user defined module for tasks (models, criteria), optimizers, and lr schedulers.",
-    )
-    parser.add_argument(
-        "--config_overrides",
-        nargs="*",
-        help='Override parameters on config with a json style string, e.g. {"<PARAM_NAME_1>": <PARAM_VALUE_1>, "<PARAM_GROUP_2>.<PARAM_SUBGROUP_2>.<PARAM_2>": <PARAM_VALUE_2>}. A key with "." updates the object in the corresponding nested dict. Remember to escape " in command line.',
-    )
-    parser.add_argument(
-        "--overrides",
-        help="arguments that used to override the config file in cmdline",
-        nargs=argparse.REMAINDER,
-    )
+def load_vcoco_parser():
+    parser = argparse.ArgumentParser(description='Pretrain or fine-tune models for NLP tasks.')
+    parser.add_argument('--command', default="evaluate", help='Command: train/evaluate/train-and-evaluate')
+    parser.add_argument('--conf_files', nargs='+', help='Path(s) to the config file(s).')
+    parser.add_argument('--user_dir', help='Path to the user defined module for tasks (models, criteria), optimizers, and lr schedulers.')
+    parser.add_argument('--config_overrides', nargs='*', help='Override parameters on config with a json style string, e.g. {"<PARAM_NAME_1>": <PARAM_VALUE_1>, "<PARAM_GROUP_2>.<PARAM_SUBGROUP_2>.<PARAM_2>": <PARAM_VALUE_2>}. A key with "." updates the object in the corresponding nested dict. Remember to escape " in command line.')
+    parser.add_argument('--overrides', help='arguments that used to override the config file in cmdline', nargs=argparse.REMAINDER)
+    cmdline_args = parser.parse_args('')
+    return cmdline_args
 
-    cmdline_args = parser.parse_args("")
-    cmdline_args.conf_files = [os.path.join(home_dir, "../configs/hdecoder/vcoco.yaml")]
-    cmdline_args.overrides = [
-        "WEIGHT",
-        "../checkpoints/xdecoder_focalt_best_openseg.pt",
-    ]
-
+def load_vcoco_opt_command(cmdline_args):
     opt = load_opt_from_config_files(cmdline_args.conf_files)
+    opt["base_path"] = "../"
 
-    keys = [
-        cmdline_args.overrides[idx * 2]
-        for idx in range(len(cmdline_args.overrides) // 2)
-    ]
-    vals = [
-        cmdline_args.overrides[idx * 2 + 1]
-        for idx in range(len(cmdline_args.overrides) // 2)
-    ]
-    vals = [
-        val.replace("false", "").replace("False", "")
-        if len(val.replace(" ", "")) == 5
-        else val
-        for val in vals
-    ]
+    keys = [cmdline_args.overrides[idx*2] for idx in range(len(cmdline_args.overrides)//2)]
+    vals = [cmdline_args.overrides[idx*2+1] for idx in range(len(cmdline_args.overrides)//2)]
+    vals = [val.replace('false', '').replace('False','') if len(val.replace(' ', '')) == 5 else val for val in vals]
     types = []
     for key in keys:
-        key = key.split(".")
+        key = key.split('.')
         ele = opt.copy()
         while len(key) > 0:
             ele = ele[key.pop(0)]
         types.append(type(ele))
 
-    config_dict = {x: z(y) for x, y, z in zip(keys, vals, types)}
-    config_dict
+    config_dict = {x:z(y) for x,y,z in zip(keys, vals, types)}
 
     load_config_dict_to_opt(opt, config_dict)
     for key, val in cmdline_args.__dict__.items():
         if val is not None:
             opt[key] = val
 
-    return opt, cmdline_args
+    return opt
 
 
 def save_opt_to_json(opt, conf_file):
