@@ -32,6 +32,7 @@ class CDN(nn.Module):
         self.hoi_decoder = transformer_decoder
 
         hidden_dim = transformer_decoder.d_model
+        
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.obj_class_embed = nn.Linear(hidden_dim, num_obj_classes + 1).cuda()
         self.verb_class_embed = nn.Linear(hidden_dim, num_verb_classes).cuda()

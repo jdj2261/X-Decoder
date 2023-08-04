@@ -232,6 +232,10 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         num_epochs = self.opt['SOLVER']['MAX_NUM_EPOCHS']
 
         train_prev_logged_time = datetime.now()
+        
+        best_perf = 0.0
+        best_model = False
+        prev_tags = ""
 
         for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
             self.train_params['current_epoch_idx'] = epoch
@@ -288,10 +292,27 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                 # evaluate and save ckpt every epoch
                 if batch_idx + 1 == self.train_params['updates_per_epoch']:
                     results = self._eval_on_set(self.save_folder)
+                    best_mAP_all = results['vcoco_val/vcoco']['mAP_all']
+
                     if self.wdb:
-                        self.wdb.log({"mAP_all": results['vcoco_val/vcoco']['mAP_all']})
+                        self.wdb.log({"mAP_all": best_mAP_all})
                         self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
-                    self.save_checkpoint(self.train_params['num_updates'])
+                    
+                    if best_mAP_all > best_perf:
+                        best_perf = best_mAP_all
+                        best_model = True
+                    else:
+                        best_model = False
+
+                    if best_model:
+                        save_dir = os.path.join(self.save_folder, prev_tags)
+                        if self.opt['rank'] == 0:
+                            save_dir = os.path.abspath(save_dir)
+                            shutil.rmtree(save_dir)
+                            logger.info(f"removed previous save directory..")
+
+                        self.save_checkpoint(self.train_params['num_updates'])
+                        prev_tags = str(self.train_params['num_updates']).zfill(8)
                     break
 
             self.lr_schedulers['default'].step()

@@ -11,9 +11,9 @@
 
 PIPELINE: HDecoderPipeline
 TRAINER: hdecoder
-SAVE_DIR: '../data/output/test'
+SAVE_DIR: 'data/output/test'
 base_path: "./"
-WANDB: false
+WANDB: true
 AUX_LOSS: true
 
 # Resume Logistic
@@ -89,7 +89,7 @@ MODEL:
     MASK: True
     HIDDEN_DIM: 512
     NUM_OBJECT_QUERIES: 100
-    NUM_OBJECT_CLASSES: 81
+    NUM_OBJECT_CLASSES: 80
     NUM_VERB_CLASSES: 29
     NHEADS: 8
     DROPOUT: 0.1
@@ -184,7 +184,7 @@ VCOCO:
     SAMPLER_TRAIN: "TrainingSampler"
     ASPECT_RATIO_GROUPING: False
   TEST:
-    BATCH_SIZE_TOTAL: 1
+    BATCH_SIZE_TOTAL: 2
   TRAIN:
     BATCH_SIZE_TOTAL: 2
     BATCH_SIZE_PER_GPU: 1

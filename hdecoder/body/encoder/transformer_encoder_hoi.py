@@ -232,7 +232,10 @@ class TransformerEncoderHOI(BaseEncoder):
 
         in_channels = feature_channels[len(self.in_features) - 1]
         self.input_proj = Conv2d(in_channels, conv_dim, kernel_size=1)
-        weight_init.c2_xavier_fill(self.input_proj)
+        
+        # TODO 주석처리
+        # weight_init.c2_xavier_fill(self.input_proj)
+        
         self.transformer = TransformerEncoderOnly(
             d_model=conv_dim,
             dropout=transformer_dropout,

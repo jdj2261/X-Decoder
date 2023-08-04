@@ -190,23 +190,6 @@ class SetCriterionHOI(nn.Module):
             losses['loss_obj_giou'] = (loss_obj_giou * exist_obj_boxes).sum() / (exist_obj_boxes.sum() + 1e-4)
         return losses
 
-    def loss_matching_labels(self, outputs, targets, indices, num_interactions, log=True):
-        assert 'pred_matching_logits' in outputs
-        src_logits = outputs['pred_matching_logits']
-
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t['matching_labels'][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], 0,
-                                    dtype=torch.int64, device=src_logits.device)
-        target_classes[idx] = target_classes_o
-
-        loss_matching = F.cross_entropy(src_logits.transpose(1, 2), target_classes)
-        losses = {'loss_matching': loss_matching}
-
-        if log:
-            losses['matching_error'] = 100 - accuracy(src_logits[idx], target_classes_o)[0]
-        return losses
-
     def _neg_loss(self, pred, gt, weights=None, alpha=0.25):
         pos_inds = gt.eq(1).float()
         neg_inds = gt.lt(1).float()
@@ -245,7 +228,6 @@ class SetCriterionHOI(nn.Module):
             'obj_cardinality': self.loss_obj_cardinality,
             'verb_labels': self.loss_verb_labels,
             'sub_obj_boxes': self.loss_sub_obj_boxes,
-            'matching_labels': self.loss_matching_labels
         }
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num, **kwargs)
