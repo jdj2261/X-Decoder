@@ -74,6 +74,13 @@ class CDNHOI(nn.Module):
         weight_dict['loss_sub_giou'] = dec_cfg["GIOU_LOSS_COEF"]
         weight_dict['loss_obj_giou'] = dec_cfg["MATCHING_LOSS_COEF"]
 
+        if cfg["AUX_LOSS"]:
+            min_dec_layers_num = min(dec_cfg["HOPD_DEC_LAYERS"], dec_cfg["INTERACTION_DEC_LAYERS"])
+            aux_weight_dict = {}
+            for i in range(min_dec_layers_num - 1):
+                aux_weight_dict.update({k + f'_{i}': v for k, v in weight_dict.items()})
+            weight_dict.update(aux_weight_dict)
+
         losses = ['obj_labels', 'verb_labels', 'sub_obj_boxes', 'obj_cardinality']
         criterion = SetCriterionHOI(
             dec_cfg["NUM_OBJECT_CLASSES"], 

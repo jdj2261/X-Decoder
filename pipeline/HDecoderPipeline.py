@@ -28,6 +28,7 @@ from utils.distributed import is_main_process
 from trainer.utils.misc import move_batch_to_device, cast_batch_to_half
 
 from .utils.misc import hook_metadata, hook_switcher
+from utils.misc import reduce_dict
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +100,19 @@ class HDecoderPipeline:
         if self._opt['FP16']:
             # in FP16 mode, DeepSpeed casts the model to FP16, so the input needs to be manually casted to FP16
             batch = cast_batch_to_half(batch)
-        loss = trainer.compute_loss(self.forward_func, batch)
-        total_loss = sum(loss for loss in loss.values())
+        loss_dict = trainer.compute_loss(self.forward_func, batch)
+        weight_dict = trainer.models['default'].model.criterion.weight_dict
+        
+        loss_dict_reduced = reduce_dict(loss_dict)
+        loss_dict_reduced_scaled = {k: v * weight_dict[k]
+                                    for k, v in loss_dict_reduced.items() if k in weight_dict}
+        losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
 
-        loss_info = {k: v.detach().item() for k,v in loss.items()}
-        loss_info["total_loss"] = total_loss.detach().item()
+        loss_info["total_loss"] = losses_reduced_scaled.detach().item()
+        loss_info.update({k: v.detach().item() for k,v in loss_dict.items()})
         sample_size_info = {'num_samples': len(batch)}
         
+        total_loss = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
         trainer.backward_loss(total_loss, model_names=['default'])
         trainer.update_model(model_name='default')
         return loss_info, sample_size_info, extra_info
@@ -128,7 +135,7 @@ class HDecoderPipeline:
             self.evaluator.reset()
             with torch.no_grad():
                 model.model.metadata = MetadataCatalog.get(dataset_label)
-                model.model.metadata = hook_metadata(model.model.metadata, dataset_label)
+                # model.model.metadata = hook_metadata(model.model.metadata, dataset_label)
                 eval_type = model.model.metadata.evaluator_type
                 total = len(eval_batch_gen)
                 num_warmup = min(5, total - 1)

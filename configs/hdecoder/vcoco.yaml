@@ -13,7 +13,8 @@ PIPELINE: HDecoderPipeline
 TRAINER: hdecoder
 SAVE_DIR: '../data/output/test'
 base_path: "./"
-WANDB: true
+WANDB: false
+AUX_LOSS: true
 
 # Resume Logistic
 RESUME: false
@@ -24,7 +25,7 @@ PYLEARN_MODEL: '' # model resume when evaluation
 DONT_LOAD_MODEL: true
 
 # Logging and Debug
-LOG_EVERY: 100
+LOG_EVERY: 10
 FIND_UNUSED_PARAMETERS: false
 
 # Speed up training
@@ -47,7 +48,7 @@ MODEL:
   KEYPOINT_ON: false
   LOAD_PROPOSALS: false
   DIM_PROJ: 512
-  BACKBONE_DIM: 768
+  BACKBONE_DIM: 2048
   BACKBONE:
     NAME: focal_dw
     PRETRAINED: ''
@@ -87,8 +88,8 @@ MODEL:
     NAME: hdecoder
     MASK: True
     HIDDEN_DIM: 512
-    NUM_OBJECT_QUERIES: 101
-    NUM_OBJECT_CLASSES: 80
+    NUM_OBJECT_QUERIES: 100
+    NUM_OBJECT_CLASSES: 81
     NUM_VERB_CLASSES: 29
     NHEADS: 8
     DROPOUT: 0.1
@@ -101,7 +102,7 @@ MODEL:
     # matcher
     COST_OBJECT_CLASS: 1
     COST_VERB_CLASS: 1
-    COST_BBOX: 1
+    COST_BBOX: 2.5
     COST_GIOU: 1
     COST_MATCHING: 1
 
@@ -185,5 +186,5 @@ VCOCO:
   TEST:
     BATCH_SIZE_TOTAL: 1
   TRAIN:
-    BATCH_SIZE_TOTAL: 1
+    BATCH_SIZE_TOTAL: 2
     BATCH_SIZE_PER_GPU: 1

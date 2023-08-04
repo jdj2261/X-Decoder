@@ -18,11 +18,6 @@ class VCOCOEvaluator(DatasetEvaluator):
         self.overlap_iou = 0.5
         self.max_hois = 100
 
-        self.fp = defaultdict(list)
-        self.tp = defaultdict(list)
-        self.score = defaultdict(list)
-        self.sum_gts = defaultdict(lambda: 0)
-
         self.verb_classes = ['hold_obj', 'stand', 'sit_instr', 'ride_instr', 'walk', 'look_obj', 'hit_instr', 'hit_obj',
                              'eat_obj', 'eat_instr', 'jump_instr', 'lay_instr', 'talk_on_phone_instr', 'carry_obj',
                              'throw_obj', 'catch_obj', 'cut_instr', 'cut_obj', 'run', 'work_on_computer_instr',
@@ -34,6 +29,10 @@ class VCOCOEvaluator(DatasetEvaluator):
     def reset(self):
         self._preds = []
         self._gts = []
+        self._fp = defaultdict(list)
+        self._tp = defaultdict(list)
+        self._score = defaultdict(list)
+        self._sum_gts = defaultdict(lambda: 0)
 
     @staticmethod
     def _prepare_eval_targets(batched_inputs):
@@ -97,7 +96,7 @@ class VCOCOEvaluator(DatasetEvaluator):
                 'hoi_annotation': [{'subject_id': hoi[0], 'object_id': hoi[1], 'category_id': hoi[2]} for hoi in img_gts['hois']]
             })
             for hoi in result_gts[-1]['hoi_annotation']:
-                self.sum_gts[hoi['category_id']] += 1
+                self._sum_gts[hoi['category_id']] += 1
 
         for img_preds, img_gts in zip(result_preds, result_gts):
             pred_bboxes = img_preds['predictions']
@@ -109,9 +108,9 @@ class VCOCOEvaluator(DatasetEvaluator):
                 self.compute_fptp(pred_hois, gt_hois, bbox_pairs, pred_bboxes, bbox_overlaps)
             else:
                 for pred_hoi in pred_hois:
-                    self.tp[pred_hoi['category_id']].append(0)
-                    self.fp[pred_hoi['category_id']].append(1)
-                    self.score[pred_hoi['category_id']].append(pred_hoi['score'])
+                    self._tp[pred_hoi['category_id']].append(0)
+                    self._fp[pred_hoi['category_id']].append(1)
+                    self._score[pred_hoi['category_id']].append(pred_hoi['score'])
         map = self.compute_map()
         return map
     
@@ -119,17 +118,17 @@ class VCOCOEvaluator(DatasetEvaluator):
         print('------------------------------------------------------------')
         ap = defaultdict(lambda: 0)
         aps = {}
-        for category_id in sorted(list(self.sum_gts.keys())):
-            sum_gts = self.sum_gts[category_id]
+        for category_id in sorted(list(self._sum_gts.keys())):
+            sum_gts = self._sum_gts[category_id]
             if sum_gts == 0:
                 continue
 
-            tp = np.array((self.tp[category_id]))
-            fp = np.array((self.fp[category_id]))
+            tp = np.array((self._tp[category_id]))
+            fp = np.array((self._fp[category_id]))
             if len(tp) == 0:
                 ap[category_id] = 0
             else:
-                score = np.array(self.score[category_id])
+                score = np.array(self._score[category_id])
                 sort_inds = np.argsort(-score)
                 fp = fp[sort_inds]
                 tp = tp[sort_inds]
@@ -199,13 +198,13 @@ class VCOCOEvaluator(DatasetEvaluator):
                                 max_overlap = min_overlap_gt
                                 max_gt_hoi = gt_hoi
                 if is_match == 1 and vis_tag[gt_hois.index(max_gt_hoi)] == 0:
-                    self.fp[pred_hoi['category_id']].append(0)
-                    self.tp[pred_hoi['category_id']].append(1)
+                    self._fp[pred_hoi['category_id']].append(0)
+                    self._tp[pred_hoi['category_id']].append(1)
                     vis_tag[gt_hois.index(max_gt_hoi)] = 1
                 else:
-                    self.fp[pred_hoi['category_id']].append(1)
-                    self.tp[pred_hoi['category_id']].append(0)
-                self.score[pred_hoi['category_id']].append(pred_hoi['score'])
+                    self._fp[pred_hoi['category_id']].append(1)
+                    self._tp[pred_hoi['category_id']].append(0)
+                self._score[pred_hoi['category_id']].append(pred_hoi['score'])
 
     def compute_iou_mat(self, bbox_list1, bbox_list2):
         iou_mat = np.zeros((len(bbox_list1), len(bbox_list2)))

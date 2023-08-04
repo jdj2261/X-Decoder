@@ -44,7 +44,6 @@ class TransformerEncoderOnly(nn.Module):
 
     def forward(self, src, mask, pos_embed):
         # flatten NxCxHxW to HWxNxC
-        bs, c, h, w = src.shape
         src = src.flatten(2).permute(2, 0, 1)
         pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
         if mask is not None:
@@ -248,20 +247,20 @@ class TransformerEncoderHOI(BaseEncoder):
         # update layer
         use_bias = norm == ""
         output_norm = get_norm(norm, conv_dim)
-        output_conv = Conv2d(
-            conv_dim,
-            conv_dim,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=use_bias,
-            norm=output_norm,
-            activation=F.relu,
-        )
-        weight_init.c2_xavier_fill(output_conv)
+        # output_conv = Conv2d(
+        #     conv_dim,
+        #     conv_dim,
+        #     kernel_size=3,
+        #     stride=1,
+        #     padding=1,
+        #     bias=use_bias,
+        #     norm=output_norm,
+        #     activation=F.relu,
+        # )
+        # weight_init.c2_xavier_fill(output_conv)
         delattr(self, "layer_{}".format(len(self.in_features)))
-        self.add_module("layer_{}".format(len(self.in_features)), output_conv)
-        self.output_convs[0] = output_conv
+        # self.add_module("layer_{}".format(len(self.in_features)), output_conv)
+        # self.output_convs[0] = output_conv
 
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):

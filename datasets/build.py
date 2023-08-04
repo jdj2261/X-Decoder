@@ -58,6 +58,7 @@ from .evaluation import (
 from xdecoder.utils import configurable
 from utils.distributed import get_world_size
 from torch.utils.data import DataLoader
+from .utils.misc import custom_collate_fn
 
 class JointLoader(torchdata.IterableDataset):
     def __init__(self, loaders, key_dataset):

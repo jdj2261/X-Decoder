@@ -110,6 +110,24 @@ def get_world_size():
         return 1
     return dist.get_world_size()
 
+
+def reduce_dict(input_dict, average=True):
+    world_size = get_world_size()
+    if world_size < 2:
+        return input_dict
+    with torch.no_grad():
+        names = []
+        values = []
+        for k in sorted(input_dict.keys()):
+            names.append(k)
+            values.append(input_dict[k])
+        values = torch.stack(values, dim=0)
+        dist.all_reduce(values)
+        if average:
+            values /= world_size
+        reduced_dict = {k: v for k, v in zip(names, values)}
+    return reduced_dict
+
 class AverageMeter(object):
     """Computes and stores the average and current value."""
 
