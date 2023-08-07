@@ -122,9 +122,9 @@ class CDNHOI(nn.Module):
     def forward_hoi(self, batched_inputs):
         assert "instances" in batched_inputs[0]
         images = [x["image"].to(self.device) for x in batched_inputs]
-        # images = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        images = ImageList.from_tensors(images)
-
+        images = [(x - self.pixel_mean) / self.pixel_std for x in images]
+        # images = ImageList.from_tensors(images)
+        images = ImageList.from_tensors(images, self.size_divisibility)
         features = self.backbone(images.tensor)
         
         # TODO not mask None
