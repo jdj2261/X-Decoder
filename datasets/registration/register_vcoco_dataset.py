@@ -3,7 +3,7 @@ import os
 import json
 
 from detectron2.data import DatasetCatalog, MetadataCatalog
-
+from detectron2.structures import BoxMode
 
 _PREDEFINED_SPLITS_VCOCO_CAPTION = {
     "vcoco_train": (
@@ -146,6 +146,9 @@ def load_vcoco_json(image_root, anno_file):
                 record[key] = os.path.join(image_root, v["file_name"])
             else:
                 record[key] = val
+                if key == "annotations":
+                    for anno in v[key]:
+                        anno["bbox_mode"] = BoxMode.XYWH_ABS
         dataset_dicts.append(record)
     return dataset_dicts
 

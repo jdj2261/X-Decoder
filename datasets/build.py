@@ -43,6 +43,7 @@ from .dataset_mappers import (
     ScanNetPanoDatasetMapper,
     RefCOCODatasetMapper,
     VCOCODatasetMapper,
+    VCOCODatasetMapperModified
 )
 
 from .evaluation import (
@@ -474,6 +475,8 @@ def build_eval_dataloader(
             mapper = RefCOCODatasetMapper(cfg, False)
         elif "vcoco" in dataset_name:
             mapper = VCOCODatasetMapper(cfg, False)
+        elif "vcoco_modified" in dataset_name:
+            mapper = VCOCODatasetMapperModified(cfg, False)
         else:
             mapper = None
 
@@ -534,6 +537,13 @@ def build_train_dataloader(
             )
         elif mapper_name == "vcoco":
             mapper = VCOCODatasetMapper(cfg, True)
+            loaders["vcoco"] = build_detection_train_loader(
+                cfg, dataset_name, mapper=mapper
+            )
+            # TODO 나중에 JointLoader로 통일
+            return HoiLoader(loaders)
+        elif mapper_name == "vcoco_modified":
+            mapper = VCOCODatasetMapperModified(cfg, True)
             loaders["vcoco"] = build_detection_train_loader(
                 cfg, dataset_name, mapper=mapper
             )

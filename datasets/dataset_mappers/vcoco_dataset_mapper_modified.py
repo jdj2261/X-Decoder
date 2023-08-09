@@ -15,10 +15,15 @@ from torchvision import transforms
 from pycocotools import mask
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
+from detectron2.structures import (
+    Boxes,
+    BoxMode,
+    Instances,
+)
 
 from xdecoder.utils import configurable
 
-__all__ = ["VCOCODatasetMapper"]
+__all__ = ["VCOCODatasetMapperModified"]
 
 
 def build_transform_gen(cfg, is_train):
@@ -58,7 +63,7 @@ def build_transform_gen(cfg, is_train):
 
     return augmentation
 
-class VCOCODatasetMapper:
+class VCOCODatasetMapperModified:
     @configurable
     def __init__(
         self,
@@ -117,129 +122,73 @@ class VCOCODatasetMapper:
         Returns:
             dict: a format that builtin models in detectron2 accept
         """
-        dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
+        dataset_dict = copy.deepcopy(dataset_dict)
+        # image
+        image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
+        utils.check_image_size(dataset_dict, image)
 
         if self.is_train and len(dataset_dict["annotations"]) > self.num_queries:
             dataset_dict["annotations"] = dataset_dict["annotations"][:self.num_queries]
         
-        image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
-        utils.check_image_size(dataset_dict, image)
-
-        image_shape = image.shape[:2]  # h, w
+        image, transforms = T.apply_transform_gens(self.tfm_gens, image)
+        image_shape = image.shape[:2] # h, w
         h, w = image_shape[0], image_shape[1]
+        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1)))
         
-        boxes = [obj["bbox"] for obj in dataset_dict["annotations"]]
-        boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
+        if not self.is_train:
+            # dataset_dict.pop("annotations", None)
+            return dataset_dict
 
-        if self.is_train:
-            # Add index for confirming which boxes are kept after image transformation
-            classes = [
-                (i, self._valid_obj_ids.index(obj["category_id"]))
-                for i, obj in enumerate(dataset_dict["annotations"])
+        if "annotations" in dataset_dict:
+            boxes = [obj["bbox"] for obj in dataset_dict["annotations"]]
+            boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
+
+            annos = [
+                self._transform_instance_annotations(obj, transforms, image_shape)
+                for obj in dataset_dict.pop("annotations")
+                if obj.get("iscrowd", 0) == 0
             ]
-        else:
-            classes = [
-                self._valid_obj_ids.index(obj["category_id"])
-                for obj in dataset_dict["annotations"]
-            ]
+
+            boxes = [BoxMode.convert(obj["bbox"], obj["bbox_mode"], BoxMode.XYXY_ABS) for obj in annos]
+            target = Instances(image_shape)
+            target.gt_boxes = Boxes(boxes)
+
+            # classes = [obj["classes"] for obj in annos]
+            # classes = torch.tensor(classes, dtype=torch.int64)
             
-        classes = torch.tensor(classes, dtype=torch.int64)
+            # target.gt_classes = classes
 
-        target = {}
-        target["orig_size"] = torch.as_tensor([int(h), int(w)])
-        target["size"] = torch.as_tensor([int(h), int(w)])
-
-        if self.is_train:
-            boxes[:, 0::2].clamp_(min=0, max=w)
-            boxes[:, 1::2].clamp_(min=0, max=h)
-            keep = (boxes[:, 3] > boxes[:, 1]) & (boxes[:, 2] > boxes[:, 0])
-            boxes = boxes[keep]
-            classes = classes[keep]
-
-            target["boxes"] = boxes
-            target["labels"] = classes
-            target["iscrowd"] = torch.tensor([0 for _ in range(boxes.shape[0])])
-            target["area"] = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-
-            image, transforms = T.apply_transform_gens(self.tfm_gens, image)
-
-            kept_box_indices = [label[0] for label in target["labels"]]
-
-            target["labels"] = target["labels"][:, 1]
-
-            obj_labels, verb_labels, sub_boxes, obj_boxes = [], [], [], []
-            sub_obj_pairs = []
-            for hoi in dataset_dict["hoi_annotation"]:
-                if hoi["subject_id"] not in kept_box_indices or (
-                    hoi["object_id"] != -1 and hoi["object_id"] not in kept_box_indices
-                ):
-                    continue
-                sub_obj_pair = (hoi["subject_id"], hoi["object_id"])
-                if sub_obj_pair in sub_obj_pairs:
-                    verb_labels[sub_obj_pairs.index(sub_obj_pair)][
-                        self._valid_verb_ids.index(hoi["category_id"])
-                    ] = 1
-                else:
-                    sub_obj_pairs.append(sub_obj_pair)
-                    if hoi["object_id"] == -1:
-                        obj_labels.append(torch.tensor(len(self._valid_obj_ids)))
-                    else:
-                        obj_labels.append(
-                            target["labels"][kept_box_indices.index(hoi["object_id"])]
-                        )
-                    verb_label = [0 for _ in range(len(self._valid_verb_ids))]
-                    verb_label[self._valid_verb_ids.index(hoi["category_id"])] = 1
-                    sub_box = target["boxes"][kept_box_indices.index(hoi["subject_id"])]
-                    if hoi["object_id"] == -1:
-                        obj_box = torch.zeros((4,), dtype=torch.float32)
-                    else:
-                        obj_box = target["boxes"][
-                            kept_box_indices.index(hoi["object_id"])
-                        ]
-                    verb_labels.append(verb_label)
-                    sub_boxes.append(sub_box)
-                    obj_boxes.append(obj_box)
-
-            target["filename"] = dataset_dict["file_name"]
-
-            if len(sub_obj_pairs) == 0:
-                target["obj_labels"] = torch.zeros((0,), dtype=torch.int64)
-                target["verb_labels"] = torch.zeros(
-                    (0, len(self._valid_verb_ids)), dtype=torch.float32
-                )
-                target["sub_boxes"] = torch.zeros((0, 4), dtype=torch.float32)
-                target["obj_boxes"] = torch.zeros((0, 4), dtype=torch.float32)
-                target["matching_labels"] = torch.zeros((0,), dtype=torch.int64)
-            else:
-                target["obj_labels"] = torch.stack(obj_labels)
-                target["verb_labels"] = torch.as_tensor(
-                    verb_labels, dtype=torch.float32
-                )
-                target["sub_boxes"] = torch.stack(sub_boxes)
-                target["obj_boxes"] = torch.stack(obj_boxes)
-                target["matching_labels"] = torch.ones_like(target["obj_labels"])
-        else:
-            target["filename"] = dataset_dict["file_name"]
-            target["boxes"] = boxes
-            target["labels"] = classes
-            target["id"] = dataset_dict["id"]
-            target["img_id"] = int(
-                dataset_dict["file_name"].rstrip(".jpg").split("_")[2]
-            )
-
-            image = self.transform(image)
-            hois = []
-            for hoi in dataset_dict["hoi_annotation"]:
-                hois.append(
-                    (
-                        hoi["subject_id"],
-                        hoi["object_id"],
-                        self._valid_verb_ids.index(hoi["category_id"]),
-                    )
-                )
-            target["hois"] = torch.as_tensor(hois, dtype=torch.int64)
-        dataset_dict["image"] = torch.as_tensor(
-            np.ascontiguousarray(image.transpose(2, 0, 1))
-        )
-        dataset_dict["instances"] = target
+            dataset_dict["instances"] = target
         return dataset_dict
+
+
+    @staticmethod
+    def _transform_instance_annotations(annotation, transforms, image_size):
+        if isinstance(transforms, (tuple, list)):
+            transforms = T.TransformList(transforms)
+        # bbox is 1d (per-instance bounding box)
+        bbox = BoxMode.convert(annotation["bbox"], annotation["bbox_mode"], BoxMode.XYXY_ABS)
+        # clip transformed bbox to image size
+        bbox = transforms.apply_box(np.array([bbox]))[0].clip(min=0)
+        annotation["bbox"] = np.minimum(bbox, list(image_size + image_size)[::-1])
+        annotation["bbox_mode"] = BoxMode.XYXY_ABS
+        return annotation
+    
+    @staticmethod
+    def _annotations_to_hoi_instances(annos, image_size, is_train=True):
+        if is_train:
+            target = Instances(image_size)
+            classes = [obj["category_id"] for obj in annos]
+            boxes = []
+            for obj in [annos]:
+                boxes.append(BoxMode.convert(obj["bbox"], BoxMode.XYXY_ABS, BoxMode.XYWH_ABS))
+                tmp_boxes = obj["bbox"]
+
+            # Box
+            target.gt_boxes = Boxes(boxes)
+
+            classes = [int(obj["category_id"]) for obj in annos]
+            classes = torch.tensor(classes, dtype=torch.int64)
+            target.gt_classes = classes
+
+        return target

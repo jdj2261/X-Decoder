@@ -43,7 +43,7 @@ MODEL:
   KEYPOINT_ON: false
   LOAD_PROPOSALS: false
   DIM_PROJ: 512
-  BACKBONE_DIM: 1536
+  BACKBONE_DIM: 768
   TEXT:
     ARCH: vlpencoder
     NAME: transformer
@@ -54,15 +54,15 @@ MODEL:
     LAYERS: 12 # 6
     AUTOGRESSIVE: True
   BACKBONE:
-    NAME: focal
+    NAME: focal_dw
     PRETRAINED: ''
     LOAD_PRETRAINED: false
     FOCAL:
       PRETRAIN_IMG_SIZE: 224
       PATCH_SIZE: 4
-      EMBED_DIM: 192
-      DEPTHS: [2, 2, 18, 2]
-      FOCAL_LEVELS: [4, 4, 4, 4]
+      EMBED_DIM: 96
+      DEPTHS: [2, 2, 6, 2]
+      FOCAL_LEVELS: [3, 3, 3, 3]
       FOCAL_WINDOWS: [3, 3, 3, 3]
       DROP_PATH_RATE: 0.3
       MLP_RATIO: 4.0
@@ -107,7 +107,7 @@ MODEL:
       STEP: 50
     RETRIEVAL:
       ENABLED: True
-      DIM_IMG: 1024
+      DIM_IMG: 768
       ENSEMBLE: True
     DEEP_SUPERVISION: True
     NO_OBJECT_WEIGHT: 0.1
@@ -127,7 +127,7 @@ MODEL:
     BBOX_WEIGHT: 5.0
     GIOU_WEIGHT: 2.0
     HIDDEN_DIM: 512
-    NUM_OBJECT_QUERIES: 201
+    NUM_OBJECT_QUERIES: 101
     NHEADS: 8
     DROPOUT: 0.0
     DIM_FEEDFORWARD: 2048
@@ -220,10 +220,12 @@ INPUT:
   PIXEL_STD: [58.395, 57.120, 57.375]
 
 DATASETS:
-  TRAIN: ["coco_2017_train_panoptic_filtall_with_sem_seg_caption_grounding", "vlp_train"]
+  # TRAIN: ["coco_2017_train_panoptic_filtall_with_sem_seg_caption_grounding", "vlp_train"]
+  TRAIN: ["coco_2017_train_panoptic_filtall_with_sem_seg_caption_grounding"]
   # open vocabulary segmentation evaluation.
   # TEST: ["ade20k_panoptic_val"]
-  TEST: ["coco_2017_val_panoptic_with_sem_seg", "vlp_captioning_val", "refcocog_val_umd", "vlp_val", "ade20k_panoptic_val"]
+  # TEST: ["coco_2017_val_panoptic_with_sem_seg", "vlp_captioning_val", "refcocog_val_umd", "vlp_val", "ade20k_panoptic_val"]
+  TEST: ["refcocog_val_umd"]
   # TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val", "sunrgbd_37_val_seg", "scannet_21_val_seg", "scannet_21_panoptic_val", "scannet_41_val_seg", "cityscapes_fine_panoptic_val", "cityscapes_fine_instance_seg_val", "cityscapes_fine_sem_seg_val", "bdd10k_val_sem_seg", "bdd10k_40_panoptic_val"]
   # Supervised metrics evaluation.
   # TEST: ["vlp_captioning_val", "refcocog_val_umd", "vlp_val"]

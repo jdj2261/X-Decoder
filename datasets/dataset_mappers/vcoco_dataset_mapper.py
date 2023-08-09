@@ -146,7 +146,6 @@ class VCOCODatasetMapper:
             kept_box_indices = [label[0] for label in target["labels"]]
 
             target["labels"] = target["labels"][:, 1]
-
             obj_labels, verb_labels, sub_boxes, obj_boxes = [], [], [], []
             sub_obj_pairs = []
             for hoi in dataset_dict["hoi_annotation"]:
