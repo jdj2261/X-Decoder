@@ -49,7 +49,7 @@ def main(args=None):
         wdb = wandb
         wdb.init(
             config=opt,
-            project="X-Decoder_HOI_230806",
+            project="X-Decoder_HOI_230811",
             name=f'MODEL({opt["MODEL"]["NAME"]})_EPOCHS({opt["SOLVER"]["MAX_NUM_EPOCHS"]})_SCHEDULER({opt["SOLVER"]["LR_SCHEDULER_NAME"]}_{opt["SOLVER"]["LR_STEP"]})_LOG_EVERY({opt["LOG_EVERY"]})',
         )
         opt["WANDB"] = wdb

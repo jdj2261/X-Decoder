@@ -389,51 +389,6 @@ def build_detection_train_loader(
         num_workers=num_workers,
     )
 
-@configurable(from_config=_train_loader_from_config)
-def build_detection_train_loader(
-    dataset, *, mapper, sampler=None, total_batch_size, aspect_ratio_grouping=True, num_workers=0
-):
-    """
-    Build a dataloader for object detection with some default features.
-    This interface is experimental.
-
-    Args:
-        dataset (list or torch.utils.data.Dataset): a list of dataset dicts,
-            or a map-style pytorch dataset. They can be obtained by using
-            :func:`DatasetCatalog.get` or :func:`get_detection_dataset_dicts`.
-        mapper (callable): a callable which takes a sample (dict) from dataset and
-            returns the format to be consumed by the model.
-            When using cfg, the default choice is ``DatasetMapper(cfg, is_train=True)``.
-        sampler (torch.utils.data.sampler.Sampler or None): a sampler that
-            produces indices to be applied on ``dataset``.
-            Default to :class:`TrainingSampler`, which coordinates a random shuffle
-            sequence across all workers.
-        total_batch_size (int): total batch size across all workers. Batching
-            simply puts data into a list.
-        aspect_ratio_grouping (bool): whether to group images with similar
-            aspect ratio for efficiency. When enabled, it requires each
-            element in dataset be a dict with keys "width" and "height".
-        num_workers (int): number of parallel data loading workers
-
-    Returns:
-        torch.utils.data.DataLoader: a dataloader. Each output from it is a
-            ``list[mapped_element]`` of length ``total_batch_size / num_workers``,
-            where ``mapped_element`` is produced by the ``mapper``.
-    """
-    if isinstance(dataset, list):
-        dataset = DatasetFromList(dataset, copy=False)
-    if mapper is not None:
-        dataset = MapDataset(dataset, mapper)
-    if sampler is None:
-        sampler = TrainingSampler(len(dataset))
-    assert isinstance(sampler, torch.utils.data.sampler.Sampler)
-    return build_batch_data_loader(
-        dataset,
-        sampler,
-        total_batch_size,
-        aspect_ratio_grouping=aspect_ratio_grouping,
-        num_workers=num_workers,
-    )
 
 @configurable(from_config=_train_loader_from_config)
 def build_hoi_detection_train_loader(
@@ -573,54 +528,40 @@ def build_eval_dataloader(
 
     return dataloaders
 
-def build_train_dataloader(
-    cfg,
-):
-    dataset_names = cfg["DATASETS"]["TRAIN"]
+
+def build_train_dataloader(cfg, ):
+    dataset_names = cfg['DATASETS']['TRAIN']
+    
     loaders = {}
     for dataset_name in dataset_names:
         cfg = get_config_from_name(cfg, dataset_name)
-        mapper_name = cfg["INPUT"]["DATASET_MAPPER_NAME"]
+        mapper_name = cfg['INPUT']['DATASET_MAPPER_NAME']
         # Semantic segmentation dataset mapper
         if mapper_name == "mask_former_semantic":
             mapper = MaskFormerSemanticDatasetMapper(cfg, True)
-            loaders["coco"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         # Panoptic segmentation dataset mapper
         elif mapper_name == "mask_former_panoptic":
             mapper = MaskFormerPanopticDatasetMapper(cfg, True)
-            loaders["coco"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         # Instance segmentation dataset mapper
         elif mapper_name == "mask_former_instance":
             mapper = MaskFormerInstanceDatasetMapper(cfg, True)
-            loaders["coco"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         # coco instance segmentation lsj new baseline
         elif mapper_name == "coco_instance_lsj":
             mapper = COCOInstanceNewBaselineDatasetMapper(cfg, True)
-            loaders["coco"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         # coco panoptic segmentation lsj new baseline
         elif mapper_name == "coco_panoptic_lsj":
             mapper = COCOPanopticNewBaselineDatasetMapper(cfg, True)
-            loaders["coco"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['coco'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         elif mapper_name == "vlpretrain":
             mapper = VLPreDatasetMapper(cfg, True, dataset_name)
-            loaders["vlp"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['vlp'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         elif mapper_name == "refcoco":
             mapper = RefCOCODatasetMapper(cfg, True)
-            loaders["ref"] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders['ref'] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
         elif mapper_name == "vcoco":
             mapper = VCOCODatasetMapper(cfg, True)
             loaders["vcoco"] = build_hoi_detection_train_loader(
@@ -630,16 +571,12 @@ def build_train_dataloader(
             return HoiLoader(loaders)
         else:
             mapper = None
-            loaders[dataset_name] = build_detection_train_loader(
-                cfg, dataset_name=dataset_name, mapper=mapper
-            )
+            loaders[dataset_name] = build_detection_train_loader(cfg, dataset_name=dataset_name, mapper=mapper)
 
     if len(loaders) == 1 and not cfg['LOADER'].get('JOINT', False):
         return list(loaders.values())[0]
     else:
-        return JointLoader(
-            loaders, key_dataset=cfg["LOADER"].get("KEY_DATASET", "coco")
-        )
+        return JointLoader(loaders, key_dataset=cfg['LOADER'].get('KEY_DATASET', 'coco'))
 
 
 def build_evaluator(cfg, dataset_name, output_folder=None):
