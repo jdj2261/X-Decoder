@@ -6,14 +6,13 @@ from utils.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
 
 class HungarianMatcherHOI(nn.Module):
     def __init__(self, cost_obj_class: float = 1, cost_verb_class: float = 1, cost_bbox: float = 1,
-                 cost_giou: float = 1, cost_matching: float = 1, use_matching: bool = False):
+                 cost_giou: float = 1, cost_matching: float = 1):
         super().__init__()
         self.cost_obj_class = cost_obj_class
         self.cost_verb_class = cost_verb_class
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
         self.cost_matching = cost_matching
-        self.use_matching = use_matching
         assert cost_obj_class != 0 or cost_verb_class != 0 or cost_bbox != 0 or cost_giou != 0 or cost_matching != 0, 'all costs cant be 0'
 
     @torch.no_grad()
@@ -55,13 +54,6 @@ class HungarianMatcherHOI(nn.Module):
 
         C = self.cost_obj_class * cost_obj_class + self.cost_verb_class * cost_verb_class + \
             self.cost_bbox * cost_bbox + self.cost_giou * cost_giou
-
-        if self.use_matching:
-            tgt_matching_labels = torch.cat([v['matching_labels'] for v in targets])
-            out_matching_prob = outputs['pred_matching_logits'].flatten(0, 1).softmax(-1)
-            cost_matching = -out_matching_prob[:, tgt_matching_labels]
-            C += self.cost_matching * cost_matching
-
 
         C = C.view(bs, num_queries, -1).cpu()
 
