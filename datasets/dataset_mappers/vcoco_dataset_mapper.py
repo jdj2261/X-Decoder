@@ -178,7 +178,7 @@ class VCOCODatasetMapper:
                     verb_labels.append(verb_label)
                     sub_boxes.append(sub_box)
                     obj_boxes.append(obj_box)
-            print(obj_boxes)
+
             target["filename"] = dataset_dict["file_name"]
             if len(sub_obj_pairs) == 0:
                 target["obj_labels"] = torch.zeros((0,), dtype=torch.int64)

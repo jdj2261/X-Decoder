@@ -113,6 +113,8 @@ MODEL:
     GIOU_LOSS_COEF: 1
     MATCHING_LOSS_COEF: 1
     EOS_COEF: 0.1
+    SIZE_DIVISIBILITY: 32
+    
   FREEZE_NAME:
     - "backbone": True
     - "encoder": True
@@ -122,8 +124,8 @@ INPUT:
 
 DATASETS:
   # open vocabulary segmentation evaluation.
-  TRAIN: ["vcoco_train"]
-  TEST: ["vcoco_val"]
+  TRAIN: ["vcoco_modified_train"]
+  TEST: ["vcoco_modified_val"]
   CLASS_CONCAT: false
   SIZE_DIVISIBILITY: 32
   PROPOSAL_FILES_TRAIN: []

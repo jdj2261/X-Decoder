@@ -33,33 +33,43 @@ def build_transform_gen(cfg, is_train):
     Returns:
         list[Augmentation]
     """
-    assert is_train, "Only support training augmentation"
-    cfg_input = cfg["INPUT"]
-    image_size = cfg_input["IMAGE_SIZE"]
-    min_scale = cfg_input["MIN_SCALE"]
-    max_scale = cfg_input["MAX_SCALE"]
+    if is_train:
+        cfg_input = cfg["INPUT"]
+        image_size = cfg_input["IMAGE_SIZE"]
+        min_scale = cfg_input["MIN_SCALE"]
+        max_scale = cfg_input["MAX_SCALE"]
 
-    augmentation = []
+        augmentation = []
 
-    if cfg_input["RANDOM_FLIP"] != "none":
-        augmentation.append(
-            T.RandomFlip(
-                horizontal=cfg_input["RANDOM_FLIP"] == "horizontal",
-                vertical=cfg_input["RANDOM_FLIP"] == "vertical",
+        if cfg_input["RANDOM_FLIP"] != "none":
+            augmentation.append(
+                T.RandomFlip(
+                    horizontal=cfg_input["RANDOM_FLIP"] == "horizontal",
+                    vertical=cfg_input["RANDOM_FLIP"] == "vertical",
+                )
             )
-        )
 
-    augmentation.extend(
-        [
-            T.ResizeScale(
-                min_scale=min_scale,
-                max_scale=max_scale,
-                target_height=image_size,
-                target_width=image_size,
-            ),
-            T.FixedSizeCrop(crop_size=(image_size, image_size)),
-        ]
-    )
+        augmentation.extend(
+            [
+                T.ResizeScale(
+                    min_scale=min_scale,
+                    max_scale=max_scale,
+                    target_height=image_size,
+                    target_width=image_size,
+                ),
+                T.FixedSizeCrop(crop_size=(image_size, image_size)),
+            ]
+        )
+    else:
+        cfg_input = cfg["INPUT"]
+        image_size = cfg_input["IMAGE_SIZE"]
+        augmentation = []
+
+        augmentation.extend(
+            [
+                T.Resize((image_size, image_size)),
+            ]
+        )
 
     return augmentation
 
@@ -99,11 +109,8 @@ class VCOCODatasetMapperModified:
     @classmethod
     def from_config(cls, cfg, is_train=True):
         # Build augmentation
-        print(cfg)
-        if is_train:
-            tfm_gens = build_transform_gen(cfg, is_train)
-        else:
-            tfm_gens = None
+
+        tfm_gens = build_transform_gen(cfg, is_train)
 
         ret = {
             "is_train": is_train,
@@ -127,16 +134,21 @@ class VCOCODatasetMapperModified:
         image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
         utils.check_image_size(dataset_dict, image)
 
+        
         if self.is_train and len(dataset_dict["annotations"]) > self.num_queries:
             dataset_dict["annotations"] = dataset_dict["annotations"][:self.num_queries]
+        
         
         image, transforms = T.apply_transform_gens(self.tfm_gens, image)
         image_shape = image.shape[:2] # h, w
         h, w = image_shape[0], image_shape[1]
         dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1)))
-        
+        dataset_dict['width'] = int(w)
+        dataset_dict['height'] = int(h)
         if not self.is_train:
-            # dataset_dict.pop("annotations", None)
+            valid_instances = self._get_valid_instances(dataset_dict)
+            dataset_dict["instances"] = valid_instances
+            dataset_dict.pop("annotations", None)
             return dataset_dict
 
         if "annotations" in dataset_dict:
@@ -148,9 +160,13 @@ class VCOCODatasetMapperModified:
                 for obj in dataset_dict.pop("annotations")
                 if obj.get("iscrowd", 0) == 0
             ]
-            hio_annos = [hoi_anno for hoi_anno in dataset_dict.pop("hoi_annotation")]
-            instances = self._annotations_to_hoi_instances(annos, image_shape, hio_annos)            
+            
+            instances = self._annotations_to_instances(annos, image_shape)            
             dataset_dict["instances"] = instances
+
+            hoi_annos = [hoi_anno for hoi_anno in dataset_dict.pop("hoi_annotation")]
+            file_names = dataset_dict["file_name"]
+            dataset_dict["hoi_instances"] = self._annotations_to_hoi_instances(instances, hoi_annos, file_names)
         return dataset_dict
 
 
@@ -166,7 +182,7 @@ class VCOCODatasetMapperModified:
         annotation["bbox_mode"] = BoxMode.XYXY_ABS
         return annotation
     
-    def _annotations_to_hoi_instances(self, annos, image_size, hio_annos):
+    def _annotations_to_instances(self, annos, image_size):
         if self.is_train:
             boxes = [BoxMode.convert(obj["bbox"], obj["bbox_mode"], BoxMode.XYXY_ABS) for obj in annos]
             target = Instances(image_size)
@@ -182,39 +198,86 @@ class VCOCODatasetMapperModified:
             kept_box_indices = [label[0] for label in classes]
 
             classes = classes[:, 1]
-            target.gt_classes = classes
-            obj_labels, verb_labels, sub_boxes, obj_boxes = [], [], [], []
-            sub_obj_pairs = []
 
-            for hoi in hio_annos:
-                if hoi["subject_id"] not in kept_box_indices or (
-                    hoi["object_id"] != -1 and hoi["object_id"] not in kept_box_indices
-                ):
-                    continue
-                sub_obj_pair = (hoi["subject_id"], hoi["object_id"])
-                if sub_obj_pair in sub_obj_pairs:
-                    verb_labels[sub_obj_pairs.index(sub_obj_pair)][
-                        self._valid_verb_ids.index(hoi["category_id"])
-                    ] = 1
-                else:
-                    sub_obj_pairs.append(sub_obj_pair)
-                    if hoi["object_id"] == -1:
-                        obj_labels.append(torch.tensor(len(self._valid_obj_ids)))
-                    else:
-                        obj_labels.append(
-                            classes[kept_box_indices.index(hoi["object_id"])]
-                        )
-                    verb_label = [0 for _ in range(len(self._valid_verb_ids))]
-                    verb_label[self._valid_verb_ids.index(hoi["category_id"])] = 1
-                    sub_box = target.gt_boxes.tensor[kept_box_indices.index(hoi["subject_id"])]
-                    if hoi["object_id"] == -1:
-                        obj_box = torch.zeros((4,), dtype=torch.float32)
-                    else:
-                        obj_box = target.gt_boxes.tensor[
-                            kept_box_indices.index(hoi["object_id"])
-                        ]
-                    verb_labels.append(verb_label)
-                    sub_boxes.append(sub_box)
-                    obj_boxes.append(obj_box)
-            
+            target.gt_classes = classes
+            target.gt_kept_box_indices = kept_box_indices
+
         return target
+
+    def _annotations_to_hoi_instances(self, instances, hoi_annos, file_names):
+        obj_labels, verb_labels, sub_boxes, obj_boxes = [], [], [], []
+        sub_obj_pairs = []
+
+        hoi_instacnes = {}
+        for hoi in hoi_annos:
+            if hoi["subject_id"] not in instances.gt_kept_box_indices or (
+                hoi["object_id"] != -1 and hoi["object_id"] not in instances.gt_kept_box_indices
+            ):
+                continue
+            sub_obj_pair = (hoi["subject_id"], hoi["object_id"])
+            if sub_obj_pair in sub_obj_pairs:
+                verb_labels[sub_obj_pairs.index(sub_obj_pair)][
+                    self._valid_verb_ids.index(hoi["category_id"])
+                ] = 1
+            else:
+                sub_obj_pairs.append(sub_obj_pair)
+                if hoi["object_id"] == -1:
+                    obj_labels.append(torch.tensor(len(self._valid_obj_ids)))
+                else:
+                    obj_labels.append(
+                        instances.gt_classes[instances.gt_kept_box_indices.index(hoi["object_id"])]
+                    )
+                verb_label = [0 for _ in range(len(self._valid_verb_ids))]
+                verb_label[self._valid_verb_ids.index(hoi["category_id"])] = 1
+                sub_box = instances.gt_boxes.tensor[instances.gt_kept_box_indices.index(hoi["subject_id"])]
+                if hoi["object_id"] == -1:
+                    obj_box = torch.zeros((4,), dtype=torch.float32)
+                else:
+                    obj_box = instances.gt_boxes.tensor[
+                        instances.gt_kept_box_indices.index(hoi["object_id"])
+                    ]
+                verb_labels.append(verb_label)
+                sub_boxes.append(sub_box)
+                obj_boxes.append(obj_box)
+
+            hoi_instacnes["file_name"] = file_names
+            if len(sub_obj_pairs) == 0:
+                hoi_instacnes["obj_labels"] = torch.zeros((0,), dtype=torch.int64)
+                hoi_instacnes["verb_labels"] = torch.zeros(
+                    (0, len(self._valid_verb_ids)), dtype=torch.float32
+                )
+                hoi_instacnes["sub_boxes"] = torch.zeros((0, 4), dtype=torch.float32)
+                hoi_instacnes["obj_boxes"] = torch.zeros((0, 4), dtype=torch.float32)
+            else:
+                hoi_instacnes["obj_labels"] = torch.stack(obj_labels)
+                hoi_instacnes["verb_labels"] = torch.as_tensor(
+                    verb_labels, dtype=torch.float32
+                )
+                hoi_instacnes["sub_boxes"] = torch.stack(sub_boxes)
+                hoi_instacnes["obj_boxes"] = torch.stack(obj_boxes)
+        return hoi_instacnes
+    
+    def _get_valid_instances(self, dataset_dict):
+        valid_instances = {}
+        boxes = [obj["bbox"] for obj in dataset_dict["annotations"]]
+        boxes = torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4)
+        classes = [self._valid_obj_ids.index(obj["category_id"]) for obj in dataset_dict["annotations"]]
+        classes = torch.tensor(classes, dtype=torch.int64)
+        valid_instances["boxes"] = boxes
+        valid_instances["classes"] = classes
+        valid_instances["id"] = dataset_dict["id"]
+        valid_instances["img_id"] = int(
+            dataset_dict["file_name"].rstrip(".jpg").split("_")[2]
+        )
+        valid_instances["filename"] = dataset_dict["file_name"]
+        hois = []
+        for hoi in dataset_dict["hoi_annotation"]:
+            hois.append(
+                (
+                    hoi["subject_id"],
+                    hoi["object_id"],
+                    self._valid_verb_ids.index(hoi["category_id"]),
+                )
+            )
+        valid_instances["hois"] = torch.as_tensor(hois, dtype=torch.int64)
+        return valid_instances

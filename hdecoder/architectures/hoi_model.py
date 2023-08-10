@@ -32,7 +32,8 @@ class CDNHOI(nn.Module):
         postprocessors,
         pixel_mean: Tuple[float],
         pixel_std: Tuple[float],
-        metadata
+        metadata,
+        size_divisibility
 
     ):
         super().__init__()
@@ -42,6 +43,7 @@ class CDNHOI(nn.Module):
         self.losses = losses
         self.postprocessors = postprocessors
         self.metadata = metadata
+        self.size_divisibility = size_divisibility
 
         self.register_buffer(
             "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
@@ -104,7 +106,8 @@ class CDNHOI(nn.Module):
             "postprocessors": postprocessors,
             "pixel_mean": pixel_mean,
             "pixel_std": pixel_mean,
-            "metadata": MetadataCatalog.get(cfg['DATASETS']['TRAIN'][0])
+            "metadata": MetadataCatalog.get(cfg['DATASETS']['TRAIN'][0]),
+            "size_divisibility": dec_cfg["SIZE_DIVISIBILITY"],
         }
 
     @property

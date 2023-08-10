@@ -15,4 +15,5 @@ from . import (
     register_scannet_panoptic,
     register_bdd100k_panoseg,
     register_vcoco_dataset,
+    register_vcoco_modified_dataset
 )

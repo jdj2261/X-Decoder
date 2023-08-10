@@ -473,9 +473,9 @@ def build_eval_dataloader(
             mapper = SunRGBDSegDatasetMapper(cfg, False)
         elif "refcoco" in dataset_name:
             mapper = RefCOCODatasetMapper(cfg, False)
-        elif "vcoco" in dataset_name:
+        elif "vcoco_val" == dataset_name:
             mapper = VCOCODatasetMapper(cfg, False)
-        elif "vcoco_modified" in dataset_name:
+        elif "vcoco_modified_val" == dataset_name:
             mapper = VCOCODatasetMapperModified(cfg, False)
         else:
             mapper = None
@@ -485,7 +485,6 @@ def build_eval_dataloader(
         ]
 
     return dataloaders
-
 
 def build_train_dataloader(
     cfg,
