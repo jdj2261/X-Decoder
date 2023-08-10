@@ -54,39 +54,37 @@ class MaskFormerInstanceDatasetMapper:
 
         logger = logging.getLogger(__name__)
         mode = "training" if is_train else "inference"
-        logger.info(
-            f"[{self.__class__.__name__}] Augmentations used in {mode}: {augmentations}"
-        )
+        logger.info(f"[{self.__class__.__name__}] Augmentations used in {mode}: {augmentations}")
 
     @classmethod
     def from_config(cls, cfg, is_train=True):
         # Build augmentation
-        cfg_input = cfg["INPUT"]
+        cfg_input = cfg['INPUT']
         augs = [
             T.ResizeShortestEdge(
-                cfg_input["MIN_SIZE_TRAIN"],
-                cfg_input["MAX_SIZE_TRAIN"],
-                cfg_input["MIN_SIZE_TRAIN_SAMPLING"],
+                cfg_input['MIN_SIZE_TRAIN'],
+                cfg_input['MAX_SIZE_TRAIN'],
+                cfg_input['MIN_SIZE_TRAIN_SAMPLING'],
             )
         ]
 
-        cfg_input_crop = cfg_input["CROP"]
-        if cfg_input_crop["ENABLED"]:
+        cfg_input_crop = cfg_input['CROP']
+        if cfg_input_crop['ENABLED']:
             augs.append(
                 T.RandomCrop(
-                    cfg_input_crop["TYPE"],
-                    cfg_input_crop["SIZE"],
+                    cfg_input_crop['TYPE'],
+                    cfg_input_crop['SIZE'],
                 )
             )
-        if cfg_input["COLOR_AUG_SSD"]:
-            augs.append(ColorAugSSDTransform(img_format=cfg_input["FORMAT"]))
+        if cfg_input['COLOR_AUG_SSD']:
+            augs.append(ColorAugSSDTransform(img_format=cfg_input['FORMAT']))
         augs.append(T.RandomFlip())
 
         ret = {
             "is_train": is_train,
             "augmentations": augs,
-            "image_format": cfg_input["FORMAT"],
-            "size_divisibility": cfg_input["SIZE_DIVISIBILITY"],
+            "image_format": cfg_input['FORMAT'],
+            "size_divisibility": cfg_input['SIZE_DIVISIBILITY'],
         }
         return ret
 
@@ -98,9 +96,7 @@ class MaskFormerInstanceDatasetMapper:
         Returns:
             dict: a format that builtin models in detectron2 accept
         """
-        assert (
-            self.is_train
-        ), "MaskFormerPanopticDatasetMapper should only be used for training!"
+        assert self.is_train, "MaskFormerPanopticDatasetMapper should only be used for training!"
 
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         image = utils.read_image(dataset_dict["file_name"], format=self.img_format)
@@ -133,9 +129,9 @@ class MaskFormerInstanceDatasetMapper:
                 # COCO RLE
                 masks.append(mask_util.decode(segm))
             elif isinstance(segm, np.ndarray):
-                assert (
-                    segm.ndim == 2
-                ), "Expect segmentation of 2 dimensions, got {}.".format(segm.ndim)
+                assert segm.ndim == 2, "Expect segmentation of 2 dimensions, got {}.".format(
+                    segm.ndim
+                )
                 # mask array
                 masks.append(segm)
             else:

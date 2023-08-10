@@ -1,4 +1,12 @@
+# --------------------------------------------------------
+# X-Decoder -- Generalized Decoding for Pixel, Image, and Language
+# Copyright (c) 2022 Microsoft
+# Licensed under The MIT License [see LICENSE for details]
+# Modified by Xueyan Zou (xueyan@cs.wisc.edu)
+# --------------------------------------------------------
 # Copyright (c) Facebook, Inc. and its affiliates.
+
+
 import os
 import itertools
 import logging
@@ -10,7 +18,7 @@ import torch.utils.data as torchdata
 
 import detectron2.utils.comm as comm
 from detectron2.data.build import (
-    # build_batch_data_loader,
+    build_batch_data_loader,
     load_proposals_into_dataset,
     trivial_batch_collator,
 )
@@ -42,35 +50,31 @@ from .dataset_mappers import (
     BDDSemDatasetMapper,
     ScanNetPanoDatasetMapper,
     RefCOCODatasetMapper,
-    VCOCODatasetMapper,
-    VCOCODatasetMapperModified
+    VCOCODatasetMapper
 )
-
-from .evaluation import (
-    InstanceSegEvaluator,
-    ClassificationEvaluator,
-    SemSegEvaluator,
-    RetrievalEvaluator,
-    CaptioningEvaluator,
-    COCOPanopticEvaluator,
-    GroundingEvaluator,
-    VCOCOEvaluator,
+from .evaluation import (InstanceSegEvaluator, 
+                         ClassificationEvaluator, 
+                         SemSegEvaluator, 
+                         RetrievalEvaluator, 
+                         CaptioningEvaluator, 
+                         COCOPanopticEvaluator,
+                         GroundingEvaluator,
+                         VCOCOEvaluator,
 )
 from xdecoder.utils import configurable
 from utils.distributed import get_world_size
 from torch.utils.data import DataLoader
-from .utils.misc import custom_collate_fn
 
 class JointLoader(torchdata.IterableDataset):
     def __init__(self, loaders, key_dataset):
         dataset_names = []
         for key, loader in loaders.items():
-            name = "{}".format(key.split("_")[0])
+            name = "{}".format(key.split('_')[0])
             setattr(self, name, loader)
             dataset_names += [name]
         self.dataset_names = dataset_names
         self.key_dataset = key_dataset
-
+    
     def __iter__(self):
         for batch in zip(*[getattr(self, name) for name in self.dataset_names]):
             yield {key: batch[i] for i, key in enumerate(self.dataset_names)}
@@ -94,7 +98,6 @@ class HoiLoader(torchdata.IterableDataset):
 
     def __len__(self):
         return len(getattr(self, self.dataset_names[0]))
-
 
 def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     """
@@ -132,7 +135,9 @@ def filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names):
     return dataset_dicts
 
 
-def get_detection_dataset_dicts(dataset_names, filter_empty=True, proposal_files=None):
+def get_detection_dataset_dicts(
+    dataset_names, filter_empty=True, proposal_files=None
+):
     """
     Load and prepare dataset dicts for instance detection/segmentation and semantic segmentation.
 
@@ -148,7 +153,7 @@ def get_detection_dataset_dicts(dataset_names, filter_empty=True, proposal_files
     if isinstance(dataset_names, str):
         dataset_names = [dataset_names]
     assert len(dataset_names)
-
+    
     dataset_dicts = [DatasetCatalog.get(dataset_name) for dataset_name in dataset_names]
     for dataset_name, dicts in zip(dataset_names, dataset_dicts):
         assert len(dicts), "Dataset '{}' is empty!".format(dataset_name)
@@ -165,13 +170,9 @@ def get_detection_dataset_dicts(dataset_names, filter_empty=True, proposal_files
 
     has_instances = "annotations" in dataset_dicts[0]
     if filter_empty and has_instances:
-        dataset_dicts = filter_images_with_only_crowd_annotations(
-            dataset_dicts, dataset_names
-        )
+        dataset_dicts = filter_images_with_only_crowd_annotations(dataset_dicts, dataset_names)
 
-    assert len(dataset_dicts), "No valid data found in {}.".format(
-        ",".join(dataset_names)
-    )
+    assert len(dataset_dicts), "No valid data found in {}.".format(",".join(dataset_names))
     return dataset_dicts
 
 
@@ -189,19 +190,15 @@ def _test_loader_from_config(cfg, dataset_name, mapper=None):
         proposal_files=None,
     )
     if mapper is None:
-        mapper_cfg = CfgNode(
-            {"INPUT": cfg["INPUT"], "MODEL": cfg["MODEL"], "DATASETS": cfg["DATASETS"]}
-        )
+        mapper_cfg = CfgNode({'INPUT': cfg['INPUT'], 'MODEL': cfg['MODEL'], 'DATASETS': cfg['DATASETS']})
         mapper = DatasetMapper(mapper_cfg, False)
-    assert (
-        cfg["TEST"]["BATCH_SIZE_TOTAL"] % get_world_size() == 0
-    ), "Evaluation total batchsize is not divisible by gpu number"
-    batch_size = cfg["TEST"]["BATCH_SIZE_TOTAL"] // get_world_size()
+    assert cfg['TEST']['BATCH_SIZE_TOTAL'] % get_world_size() == 0, "Evaluation total batchsize is not divisible by gpu number"
+    batch_size = cfg['TEST']['BATCH_SIZE_TOTAL'] // get_world_size()
 
     return {
         "dataset": dataset,
         "mapper": mapper,
-        "num_workers": cfg["DATALOADER"]["NUM_WORKERS"],
+        "num_workers": cfg['DATALOADER']['NUM_WORKERS'],
         "sampler": InferenceSampler(len(dataset)),
         "batch_size": batch_size,
     }
@@ -272,7 +269,8 @@ def build_detection_test_loader(
         collate_fn=trivial_batch_collator if collate_fn is None else collate_fn,
     )
 
-def build_batch_data_loader(
+
+def hoi_build_batch_data_loader(
     dataset,
     sampler,
     total_batch_size,
@@ -316,9 +314,9 @@ def build_batch_data_loader(
 
 
 def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sampler=None):
-    cfg_datasets = cfg["DATASETS"]
-    cfg_dataloader = cfg["DATALOADER"]
-
+    cfg_datasets = cfg['DATASETS']
+    cfg_dataloader = cfg['DATALOADER']
+    
     if dataset is None:
         dataset = get_detection_dataset_dicts(
             dataset_name,
@@ -330,24 +328,115 @@ def _train_loader_from_config(cfg, dataset_name, mapper, *, dataset=None, sample
         mapper = DatasetMapper(cfg, True)
 
     if sampler is None:
-        sampler_name = cfg_dataloader["SAMPLER_TRAIN"]
+        sampler_name = cfg_dataloader['SAMPLER_TRAIN']
         logger = logging.getLogger(__name__)
         logger.info("Using training sampler {}".format(sampler_name))
-        print(f"Dataset length: {len(dataset)}")
-        # sampler = TrainingSampler(len(dataset))
+        sampler = TrainingSampler(len(dataset))
 
     return {
         "dataset": dataset,
         "sampler": sampler,
         "mapper": mapper,
-        "total_batch_size": cfg["TRAIN"]["BATCH_SIZE_TOTAL"],
-        "aspect_ratio_grouping": cfg_dataloader["ASPECT_RATIO_GROUPING"],
-        "num_workers": cfg_dataloader["NUM_WORKERS"],
+        "total_batch_size": cfg['TRAIN']['BATCH_SIZE_TOTAL'],
+        "aspect_ratio_grouping": cfg_dataloader['ASPECT_RATIO_GROUPING'],
+        "num_workers": cfg_dataloader['NUM_WORKERS'],
     }
 
 
 @configurable(from_config=_train_loader_from_config)
 def build_detection_train_loader(
+    dataset, *, mapper, sampler=None, total_batch_size, aspect_ratio_grouping=True, num_workers=0
+):
+    """
+    Build a dataloader for object detection with some default features.
+    This interface is experimental.
+
+    Args:
+        dataset (list or torch.utils.data.Dataset): a list of dataset dicts,
+            or a map-style pytorch dataset. They can be obtained by using
+            :func:`DatasetCatalog.get` or :func:`get_detection_dataset_dicts`.
+        mapper (callable): a callable which takes a sample (dict) from dataset and
+            returns the format to be consumed by the model.
+            When using cfg, the default choice is ``DatasetMapper(cfg, is_train=True)``.
+        sampler (torch.utils.data.sampler.Sampler or None): a sampler that
+            produces indices to be applied on ``dataset``.
+            Default to :class:`TrainingSampler`, which coordinates a random shuffle
+            sequence across all workers.
+        total_batch_size (int): total batch size across all workers. Batching
+            simply puts data into a list.
+        aspect_ratio_grouping (bool): whether to group images with similar
+            aspect ratio for efficiency. When enabled, it requires each
+            element in dataset be a dict with keys "width" and "height".
+        num_workers (int): number of parallel data loading workers
+
+    Returns:
+        torch.utils.data.DataLoader: a dataloader. Each output from it is a
+            ``list[mapped_element]`` of length ``total_batch_size / num_workers``,
+            where ``mapped_element`` is produced by the ``mapper``.
+    """
+    if isinstance(dataset, list):
+        dataset = DatasetFromList(dataset, copy=False)
+    if mapper is not None:
+        dataset = MapDataset(dataset, mapper)
+    if sampler is None:
+        sampler = TrainingSampler(len(dataset))
+    assert isinstance(sampler, torch.utils.data.sampler.Sampler)
+    return build_batch_data_loader(
+        dataset,
+        sampler,
+        total_batch_size,
+        aspect_ratio_grouping=aspect_ratio_grouping,
+        num_workers=num_workers,
+    )
+
+@configurable(from_config=_train_loader_from_config)
+def build_detection_train_loader(
+    dataset, *, mapper, sampler=None, total_batch_size, aspect_ratio_grouping=True, num_workers=0
+):
+    """
+    Build a dataloader for object detection with some default features.
+    This interface is experimental.
+
+    Args:
+        dataset (list or torch.utils.data.Dataset): a list of dataset dicts,
+            or a map-style pytorch dataset. They can be obtained by using
+            :func:`DatasetCatalog.get` or :func:`get_detection_dataset_dicts`.
+        mapper (callable): a callable which takes a sample (dict) from dataset and
+            returns the format to be consumed by the model.
+            When using cfg, the default choice is ``DatasetMapper(cfg, is_train=True)``.
+        sampler (torch.utils.data.sampler.Sampler or None): a sampler that
+            produces indices to be applied on ``dataset``.
+            Default to :class:`TrainingSampler`, which coordinates a random shuffle
+            sequence across all workers.
+        total_batch_size (int): total batch size across all workers. Batching
+            simply puts data into a list.
+        aspect_ratio_grouping (bool): whether to group images with similar
+            aspect ratio for efficiency. When enabled, it requires each
+            element in dataset be a dict with keys "width" and "height".
+        num_workers (int): number of parallel data loading workers
+
+    Returns:
+        torch.utils.data.DataLoader: a dataloader. Each output from it is a
+            ``list[mapped_element]`` of length ``total_batch_size / num_workers``,
+            where ``mapped_element`` is produced by the ``mapper``.
+    """
+    if isinstance(dataset, list):
+        dataset = DatasetFromList(dataset, copy=False)
+    if mapper is not None:
+        dataset = MapDataset(dataset, mapper)
+    if sampler is None:
+        sampler = TrainingSampler(len(dataset))
+    assert isinstance(sampler, torch.utils.data.sampler.Sampler)
+    return build_batch_data_loader(
+        dataset,
+        sampler,
+        total_batch_size,
+        aspect_ratio_grouping=aspect_ratio_grouping,
+        num_workers=num_workers,
+    )
+
+@configurable(from_config=_train_loader_from_config)
+def build_hoi_detection_train_loader(
     dataset,
     *,
     mapper,
@@ -395,7 +484,7 @@ def build_detection_train_loader(
         sampler = torch.utils.data.BatchSampler(sampler_train, total_batch_size, drop_last=True)
 
     assert isinstance(sampler, torch.utils.data.sampler.Sampler)
-    return build_batch_data_loader(
+    return hoi_build_batch_data_loader(
         dataset,
         sampler,
         total_batch_size,
@@ -475,8 +564,6 @@ def build_eval_dataloader(
             mapper = RefCOCODatasetMapper(cfg, False)
         elif "vcoco_val" == dataset_name:
             mapper = VCOCODatasetMapper(cfg, False)
-        elif "vcoco_modified_val" == dataset_name:
-            mapper = VCOCODatasetMapperModified(cfg, False)
         else:
             mapper = None
 
@@ -536,14 +623,7 @@ def build_train_dataloader(
             )
         elif mapper_name == "vcoco":
             mapper = VCOCODatasetMapper(cfg, True)
-            loaders["vcoco"] = build_detection_train_loader(
-                cfg, dataset_name, mapper=mapper
-            )
-            # TODO 나중에 JointLoader로 통일
-            return HoiLoader(loaders)
-        elif mapper_name == "vcoco_modified":
-            mapper = VCOCODatasetMapperModified(cfg, True)
-            loaders["vcoco"] = build_detection_train_loader(
+            loaders["vcoco"] = build_hoi_detection_train_loader(
                 cfg, dataset_name, mapper=mapper
             )
             # TODO 나중에 JointLoader로 통일

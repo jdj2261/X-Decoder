@@ -113,6 +113,8 @@ MODEL:
     GIOU_LOSS_COEF: 1
     MATCHING_LOSS_COEF: 1
     EOS_COEF: 0.1
+    SIZE_DIVISIBILITY: 32
+    
   FREEZE_NAME:
     - "backbone": True
     - "encoder": True

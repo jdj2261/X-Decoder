@@ -47,8 +47,7 @@ class Backbone(nn.Module):
         # this is a backward-compatible default
         return {
             name: ShapeSpec(
-                channels=self._out_feature_channels[name],
-                stride=self._out_feature_strides[name],
+                channels=self._out_feature_channels[name], stride=self._out_feature_strides[name]
             )
             for name in self._out_features
         }

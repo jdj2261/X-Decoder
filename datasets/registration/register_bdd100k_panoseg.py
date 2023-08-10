@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Modified by Xueyan Zou (xueyan@cs.wisc.edu)
 # --------------------------------------------------------
-# Copyright (c) Facebook, Inc. and its affiliates.
+
 import json
 import os
 
@@ -64,7 +64,9 @@ BDD_CATEGORIES = [
     Label("building", 10, 2, "construction", 2, False, False, (70, 70, 70)),
     Label("fence", 11, 4, "construction", 2, False, False, (190, 153, 153)),
     Label("garage", 12, 255, "construction", 2, False, True, (180, 100, 180)),
-    Label("guard rail", 13, 255, "construction", 2, False, True, (180, 165, 180)),
+    Label(
+        "guard rail", 13, 255, "construction", 2, False, True, (180, 165, 180)
+    ),
     Label("tunnel", 14, 255, "construction", 2, False, True, (150, 120, 90)),
     Label("wall", 15, 3, "construction", 2, False, False, (102, 102, 156)),
     Label("banner", 16, 255, "object", 3, False, True, (250, 170, 100)),
@@ -75,7 +77,9 @@ BDD_CATEGORIES = [
     Label("polegroup", 21, 255, "object", 3, False, True, (153, 153, 153)),
     Label("street light", 22, 255, "object", 3, False, True, (220, 220, 100)),
     Label("traffic cone", 23, 255, "object", 3, False, True, (255, 70, 0)),
-    Label("traffic device", 24, 255, "object", 3, False, True, (220, 220, 220)),
+    Label(
+        "traffic device", 24, 255, "object", 3, False, True, (220, 220, 220)
+    ),
     Label("traffic light", 25, 6, "object", 3, False, False, (250, 170, 30)),
     Label("traffic sign", 26, 7, "object", 3, False, False, (220, 220, 0)),
     Label(
@@ -108,7 +112,6 @@ BDD_COLORS = [k.color for k in BDD_CATEGORIES]
 MetadataCatalog.get("bdd100k_pano_val").set(
     stuff_colors=BDD_COLORS[:],
 )
-
 
 def load_bdd_panoptic_json(json_file, image_dir, gt_dir, meta):
     """
@@ -144,7 +147,7 @@ def load_bdd_panoptic_json(json_file, image_dir, gt_dir, meta):
         # different extension, and images have extension ".jpg" for COCO. Need
         # to make image extension a user-provided argument if we extend this
         # function to support other COCO-like datasets.
-        file_name = ann["file_name"].replace("png", "jpg")
+        file_name = ann['file_name'].replace('png', 'jpg')
 
         image_file = os.path.join(image_dir, file_name)
         label_file = os.path.join(gt_dir, ann["file_name"])
@@ -165,11 +168,7 @@ def load_bdd_panoptic_json(json_file, image_dir, gt_dir, meta):
 
 
 def register_bdd_panoptic(
-    name,
-    metadata,
-    image_root,
-    panoptic_root,
-    panoptic_json,
+    name, metadata, image_root, panoptic_root, panoptic_json,
 ):
     """
     Register a "standard" version of ADE20k panoptic segmentation dataset named `name`.

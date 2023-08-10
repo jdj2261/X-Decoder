@@ -121,48 +121,54 @@ class CDNHOI(nn.Module):
         else:
             if mode == "vcoco":
                 return self.evaluate_hoi(batched_inputs)
-        
+
     def forward_hoi(self, batched_inputs):
         assert "instances" in batched_inputs[0]
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        # images = ImageList.from_tensors(images)
         images = ImageList.from_tensors(images, self.size_divisibility)
+
+        # if "instances" in batched_inputs[0]:
+        targets = self.prepare_targets(batched_inputs, images)
         features = self.backbone(images.tensor)
         
         # TODO not mask None
         # src, mask = features[-1].decompose()
         out = self.hoid_head(features, mask=None)
-        targets = self._prepare_targets(batched_inputs)
         losses_hoi = self.criterion(out, targets)
-
+        
         del out
         return losses_hoi
-
-    def _prepare_targets(self, batched_inputs):
+    
+    def prepare_targets(self, batched_inputs, images):
+        h_pad, w_pad = images.tensor.shape[-2:]
         new_targets = []
         for idx, batch_per_image in enumerate(batched_inputs):
-            targets = batch_per_image["instances"]
-            new_targets.append({k: v.to(self.device) for k, v in targets.items() if k != 'filename'})
+            targets = batch_per_image["hoi_instances"]
+            new_target = {}
+            for key, value in targets.items():
+                if key == "file_name":
+                    continue
+                if "boxes" in key:
+                    gt_boxes = value.to(self.device)
+                    ratio = torch.tensor([w_pad,h_pad,w_pad,h_pad]).to(gt_boxes.device)[None,:]
+                    gt_boxes = gt_boxes / ratio
+                    xc,yc,w,h = (gt_boxes[:,0] + gt_boxes[:,2])/2, (gt_boxes[:,1] + gt_boxes[:,3])/2, gt_boxes[:,2] - gt_boxes[:,0], gt_boxes[:,3] - gt_boxes[:,1]
+                    gt_boxes = torch.stack([xc,yc,w,h]).permute(1,0)
+                    new_target[key] = gt_boxes
+                if "labels" in key:
+                    gt_labels = value.to(self.device)
+                    new_target[key] = gt_labels
+            new_targets.append(new_target)
         return new_targets
     
-    def _prepare_eval_targets(self, batched_inputs):
-        new_targets = []
-        for idx, batch_per_image in enumerate(batched_inputs):
-            targets = batch_per_image["instances"]
-            for k, v in targets.items():
-                if k != 'filename' and k != 'id' and k != 'img_id':
-                    new_targets.append({k: v})
-        return new_targets
-            
-
     def evaluate_hoi(self, batched_inputs):
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
 
         # TODO size_divisibility
         images = ImageList.from_tensors(images, 32)
-        orig_target_sizes = torch.stack([t["instances"]["orig_size"] for t in batched_inputs], dim=0)
+        orig_target_sizes = torch.stack([t["orig_size"] for t in batched_inputs], dim=0)
 
         features = self.backbone(images.tensor)
         outputs = self.hoid_head(features, mask=None)
@@ -171,15 +177,6 @@ class CDNHOI(nn.Module):
         results = self.postprocessors(outputs, orig_target_sizes)
 
         return results
-
-        # processed_results = []
-        # processed_results.append({})
-
-        # processed_results[-1]["predicts"] = list(itertools.chain.from_iterable(all_gather(results)))
-
-        # targets = self._prepare_eval_targets(batched_inputs)
-        # processed_results[-1]["gts"] = list(itertools.chain.from_iterable(all_gather(deepcopy(targets))))
-        # return processed_results
     
     def hoi_inference(self):
         pass

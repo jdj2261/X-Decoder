@@ -20,10 +20,10 @@ class BaseModel(nn.Module):
         return outputs
 
     def save_pretrained(self, save_dir):
-        torch.save(self.model.state_dict(), save_dir)
+        torch.save(self.model.state_dict(), os.path.join(save_dir, "model_state_dict.pt"))
 
     def from_pretrained(self, load_dir):
-        state_dict = torch.load(load_dir, map_location=self.opt["device"])
+        state_dict = torch.load(load_dir, map_location=self.opt['device'])
         state_dict = align_and_update_state_dicts(self.model.state_dict(), state_dict)
         self.model.load_state_dict(state_dict, strict=False)
         return self

@@ -33,16 +33,14 @@ def build_transform_gen(cfg, is_train):
         list[Augmentation]
     """
     # The scope of vlp dataset may not need any augmentation.
-    cfg_input = cfg["INPUT"]
-    image_size = cfg_input["IMAGE_SIZE"]
+    cfg_input = cfg['INPUT']
+    image_size = cfg_input['IMAGE_SIZE']
     augmentation = []
 
-    augmentation.extend(
-        [
-            T.Resize((image_size, image_size)),
-        ]
-    )
-
+    augmentation.extend([
+        T.Resize((image_size, image_size)),
+    ])
+    
     return augmentation
 
 
@@ -104,15 +102,15 @@ class VLPreDatasetMapper:
         # Build augmentation
         tfm_gens = build_transform_gen(cfg, is_train)
 
-        tokenizer = build_tokenizer(cfg["MODEL"]["TEXT"])
-        max_token_num = cfg["MODEL"]["TEXT"]["CONTEXT_LENGTH"]
-        device = cfg["device"]
+        tokenizer = build_tokenizer(cfg['MODEL']['TEXT'])
+        max_token_num = cfg['MODEL']['TEXT']['CONTEXT_LENGTH']
+        device = cfg['device']
 
         ret = {
             "is_train": is_train,
             "dataset_name": dataset_name,
             "tfm_gens": tfm_gens,
-            "image_format": cfg["INPUT"]["FORMAT"],
+            "image_format": cfg['INPUT']['FORMAT'],
             "tokenizer": tokenizer,
             "max_token_num": max_token_num,
             "device": device,
@@ -133,9 +131,9 @@ class VLPreDatasetMapper:
             dict: a format that builtin models in detectron2 accept
         """
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
-        arr = self.all_arrows[dataset_dict["arr_id"]]
-        cur_id = dataset_dict["cur_id"]
-        image = self.get_image(arr["image"][cur_id].as_py())
+        arr = self.all_arrows[dataset_dict['arr_id']]
+        cur_id = dataset_dict['cur_id']
+        image = self.get_image(arr['image'][cur_id].as_py())
 
         image = utils._apply_exif_orientation(image)
         image = utils.convert_PIL_to_numpy(image, self.img_format)
@@ -147,20 +145,11 @@ class VLPreDatasetMapper:
         # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
         # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
         # Therefore it's important to use torch.Tensor.
-        dataset_dict["image"] = torch.as_tensor(
-            np.ascontiguousarray(image.transpose(2, 0, 1))
-        )
+        dataset_dict["image"] = torch.as_tensor(np.ascontiguousarray(image.transpose(2, 0, 1)))
 
-        captions = dataset_dict["captions"]
+        captions = dataset_dict['captions']
         tokens = self.tokenizer(
-            captions,
-            padding="max_length",
-            truncation=True,
-            max_length=self.max_token_num,
-            return_tensors="pt",
+            captions, padding='max_length', truncation=True, max_length=self.max_token_num, return_tensors='pt'
         )
-        dataset_dict["tokens"] = {
-            "input_ids": tokens["input_ids"],
-            "attention_mask": tokens["attention_mask"],
-        }
+        dataset_dict['tokens'] = {"input_ids": tokens["input_ids"], "attention_mask": tokens["attention_mask"]}
         return dataset_dict

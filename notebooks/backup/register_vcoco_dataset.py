@@ -6,12 +6,12 @@ from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.structures import BoxMode
 
 _PREDEFINED_SPLITS_VCOCO_CAPTION = {
-    "vcoco_modified_train": (
+    "vcoco_train": (
         "v-coco/images/train2014",
         "v-coco/annotations/trainval_vcoco.json",
         None
     ),
-    "vcoco_modified_val": (
+    "vcoco_val": (
         "v-coco/images/val2014", 
         "v-coco/annotations/test_vcoco.json", 
         "v-coco/annotations/corre_vcoco.npy"
@@ -174,7 +174,7 @@ def register_vcoco(name, metadata, image_root, annot_json, correct_mat_dir=None)
     )
 
 
-def register_all_vcoco_modified(root):
+def register_all_vcoco(root):
     for (
         prefix,
         (image_root, annot_root, correct_mat_dir),
@@ -191,4 +191,4 @@ def register_all_vcoco_modified(root):
 
 
 _root = os.getenv("DATASET", "./datasets")
-register_all_vcoco_modified(_root)
+register_all_vcoco(_root)

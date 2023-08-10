@@ -23,14 +23,14 @@ _PREDEFINED_SPLITS_COCO_PANOPTIC_CAPTION = {
         "coco/panoptic_semseg_train2017",
         # "coco/annotations/captions_train2017.json",
         "coco/annotations/captions_train2017_filtkar.json",
-        "coco/annotations/caption_class_similarity.pth",
+        "coco/annotations/caption_class_similarity.pth"
     ),
     "coco_2017_val_panoptic": (
         "coco/panoptic_val2017",
         "coco/annotations/panoptic_val2017.json",
         "coco/panoptic_semseg_val2017",
         "coco/annotations/captions_val2017.json",
-        "coco/annotations/caption_class_similarity.pth",
+        "coco/annotations/caption_class_similarity.pth"
     ),
 }
 
@@ -79,9 +79,7 @@ def get_metadata():
     return meta
 
 
-def load_coco_panoptic_json(
-    json_file, image_dir, gt_dir, semseg_dir, caption_file, meta
-):
+def load_coco_panoptic_json(json_file, image_dir, gt_dir, semseg_dir, caption_file, meta):
     """
     Args:
         image_dir (str): path to the raw dataset. e.g., "~/coco/train2017".
@@ -110,13 +108,13 @@ def load_coco_panoptic_json(
 
     with PathManager.open(caption_file) as f:
         caption_info = json.load(f)
-
+    
     # build dick {image_id: Listof[captions]}
     cap_dict = collections.defaultdict(list)
-    for cap_ann in caption_info["annotations"]:
+    for cap_ann in caption_info['annotations']:
         image_id = int(cap_ann["image_id"])
         cap_dict[image_id].append(cap_ann["caption"])
-
+    
     ret = []
     for ann in json_info["annotations"]:
         image_id = int(ann["image_id"])
@@ -124,9 +122,7 @@ def load_coco_panoptic_json(
         # different extension, and images have extension ".jpg" for COCO. Need
         # to make image extension a user-provided argument if we extend this
         # function to support other COCO-like datasets.
-        image_file = os.path.join(
-            image_dir, os.path.splitext(ann["file_name"])[0] + ".jpg"
-        )
+        image_file = os.path.join(image_dir, os.path.splitext(ann["file_name"])[0] + ".jpg")
         label_file = os.path.join(gt_dir, ann["file_name"])
         sem_label_file = os.path.join(semseg_dir, ann["file_name"])
         segments_info = [_convert_category_id(x, meta) for x in ann["segments_info"]]
@@ -134,7 +130,7 @@ def load_coco_panoptic_json(
             {
                 "file_name": image_file,
                 "image_id": image_id,
-                "captions": cap_dict[image_id],
+                "captions": cap_dict[image_id], 
                 "pan_seg_file_name": label_file,
                 "sem_seg_file_name": sem_label_file,
                 "segments_info": segments_info,
@@ -148,15 +144,7 @@ def load_coco_panoptic_json(
 
 
 def register_coco_panoptic_annos_caption_sem_seg(
-    name,
-    metadata,
-    image_root,
-    panoptic_root,
-    panoptic_json,
-    sem_seg_root,
-    caption_root,
-    similarity_pth,
-    instances_json,
+    name, metadata, image_root, panoptic_root, panoptic_json, sem_seg_root, caption_root, similarity_pth, instances_json
 ):
     panoptic_name = name
     delattr(MetadataCatalog.get(panoptic_name), "thing_classes")
@@ -171,20 +159,13 @@ def register_coco_panoptic_annos_caption_sem_seg(
     semantic_name = name + "_with_sem_seg_caption"
     DatasetCatalog.register(
         semantic_name,
-        lambda: load_coco_panoptic_json(
-            panoptic_json,
-            image_root,
-            panoptic_root,
-            sem_seg_root,
-            caption_root,
-            metadata,
-        ),
+        lambda: load_coco_panoptic_json(panoptic_json, image_root, panoptic_root, sem_seg_root, caption_root, metadata),
     )
-    MetadataCatalog.get("logistic").set(caption_similarity_pth=similarity_pth)
+    MetadataCatalog.get('logistic').set(caption_similarity_pth=similarity_pth)
     MetadataCatalog.get(semantic_name).set(
         sem_seg_root=sem_seg_root,
         panoptic_root=panoptic_root,
-        caption_root=caption_root,
+        caption_root=caption_root,         
         image_root=image_root,
         panoptic_json=panoptic_json,
         json_file=instances_json,
@@ -212,8 +193,8 @@ def register_all_coco_panoptic_annos_caption_sem_seg(root):
             os.path.join(root, panoptic_root),
             os.path.join(root, panoptic_json),
             os.path.join(root, semantic_root),
-            os.path.join(root, caption_root),
-            os.path.join(root, similarity_pth),
+            os.path.join(root, caption_root), 
+            os.path.join(root, similarity_pth), 
             instances_json,
         )
 

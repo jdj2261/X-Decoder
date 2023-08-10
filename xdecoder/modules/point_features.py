@@ -58,18 +58,12 @@ def generate_regular_grid_point_coords(R, side_size, device):
             for the regular grids.
     """
     aff = torch.tensor([[[0.5, 0, 0.5], [0, 0.5, 0.5]]], device=device)
-    r = F.affine_grid(
-        aff, torch.Size((1, 1, side_size, side_size)), align_corners=False
-    )
+    r = F.affine_grid(aff, torch.Size((1, 1, side_size, side_size)), align_corners=False)
     return r.view(1, -1, 2).expand(R, -1, -1)
 
 
 def get_uncertain_point_coords_with_randomness(
-    coarse_logits,
-    uncertainty_func,
-    num_points,
-    oversample_ratio,
-    importance_sample_ratio,
+    coarse_logits, uncertainty_func, num_points, oversample_ratio, importance_sample_ratio
 ):
     """
     Sample points in [0, 1] x [0, 1] coordinate space based on their uncertainty. The unceratinties
@@ -95,13 +89,7 @@ def get_uncertain_point_coords_with_randomness(
     assert importance_sample_ratio <= 1 and importance_sample_ratio >= 0
     num_boxes = coarse_logits.shape[0]
     num_sampled = int(num_points * oversample_ratio)
-    point_coords = torch.rand(
-        num_boxes,
-        num_sampled,
-        2,
-        device=coarse_logits.device,
-        dtype=coarse_logits.dtype,
-    )
+    point_coords = torch.rand(num_boxes, num_sampled, 2, device=coarse_logits.device, dtype=coarse_logits.dtype)
     point_logits = point_sample(coarse_logits, point_coords, align_corners=False)
     # It is crucial to calculate uncertainty based on the sampled prediction value for the points.
     # Calculating uncertainties of the coarse predictions first and sampling them for points leads
@@ -114,9 +102,7 @@ def get_uncertain_point_coords_with_randomness(
     num_uncertain_points = int(importance_sample_ratio * num_points)
     num_random_points = num_points - num_uncertain_points
     idx = torch.topk(point_uncertainties[:, 0, :], k=num_uncertain_points, dim=1)[1]
-    shift = num_sampled * torch.arange(
-        num_boxes, dtype=torch.long, device=coarse_logits.device
-    )
+    shift = num_sampled * torch.arange(num_boxes, dtype=torch.long, device=coarse_logits.device)
     idx += shift[:, None]
     point_coords = point_coords.view(-1, 2)[idx.view(-1), :].view(
         num_boxes, num_uncertain_points, 2
@@ -125,9 +111,7 @@ def get_uncertain_point_coords_with_randomness(
         point_coords = cat(
             [
                 point_coords,
-                torch.rand(
-                    num_boxes, num_random_points, 2, device=coarse_logits.device
-                ),
+                torch.rand(num_boxes, num_random_points, 2, device=coarse_logits.device),
             ],
             dim=1,
         )
@@ -155,17 +139,13 @@ def get_uncertain_point_coords_on_grid(uncertainty_map, num_points):
 
     num_points = min(H * W, num_points)
     point_indices = torch.topk(uncertainty_map.view(R, H * W), k=num_points, dim=1)[1]
-    point_coords = torch.zeros(
-        R, num_points, 2, dtype=torch.float, device=uncertainty_map.device
-    )
+    point_coords = torch.zeros(R, num_points, 2, dtype=torch.float, device=uncertainty_map.device)
     point_coords[:, :, 0] = w_step / 2.0 + (point_indices % W).to(torch.float) * w_step
     point_coords[:, :, 1] = h_step / 2.0 + (point_indices // W).to(torch.float) * h_step
     return point_indices, point_coords
 
 
-def point_sample_fine_grained_features(
-    features_list, feature_scales, boxes, point_coords
-):
+def point_sample_fine_grained_features(features_list, feature_scales, boxes, point_coords):
     """
     Get features from feature maps in `features_list` that correspond to specific point coordinates
         inside each bounding box from `boxes`.
@@ -191,16 +171,12 @@ def point_sample_fine_grained_features(
     split_point_coords_wrt_image = torch.split(point_coords_wrt_image, num_boxes)
 
     point_features = []
-    for idx_img, point_coords_wrt_image_per_image in enumerate(
-        split_point_coords_wrt_image
-    ):
+    for idx_img, point_coords_wrt_image_per_image in enumerate(split_point_coords_wrt_image):
         point_features_per_image = []
         for idx_feature, feature_map in enumerate(features_list):
             h, w = feature_map.shape[-2:]
             scale = shapes_to_tensor([w, h]) / feature_scales[idx_feature]
-            point_coords_scaled = point_coords_wrt_image_per_image / scale.to(
-                feature_map.device
-            )
+            point_coords_scaled = point_coords_wrt_image_per_image / scale.to(feature_map.device)
             point_features_per_image.append(
                 point_sample(
                     feature_map[idx_img].unsqueeze(0),
@@ -260,8 +236,7 @@ def sample_point_labels(instances, point_coords):
     with torch.no_grad():
         gt_mask_logits = []
         point_coords_splits = torch.split(
-            point_coords,
-            [len(instances_per_image) for instances_per_image in instances],
+            point_coords, [len(instances_per_image) for instances_per_image in instances]
         )
         for i, instances_per_image in enumerate(instances):
             if len(instances_per_image) == 0:

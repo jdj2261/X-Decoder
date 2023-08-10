@@ -220,10 +220,11 @@ INPUT:
   PIXEL_STD: [58.395, 57.120, 57.375]
 
 DATASETS:
-  TRAIN: ["coco_2017_train_panoptic_filtall_with_sem_seg_caption_grounding", "vlp_train"]
+  TRAIN: ["coco_2017_train_panoptic_filtall_with_sem_seg_caption_grounding"]
   # open vocabulary segmentation evaluation.
   # TEST: ["ade20k_panoptic_val"]
-  TEST: ["coco_2017_val_panoptic_with_sem_seg", "vlp_captioning_val", "refcocog_val_umd", "vlp_val", "ade20k_panoptic_val"]
+  # TEST: ["coco_2017_val_panoptic_with_sem_seg", "vlp_captioning_val", "refcocog_val_umd", "vlp_val", "ade20k_panoptic_val"]
+  TEST: ["coco_2017_val_panoptic_with_sem_seg"]
   # TEST: ["ade20k_panoptic_val", "ade20k_full_sem_seg_val", "sunrgbd_37_val_seg", "scannet_21_val_seg", "scannet_21_panoptic_val", "scannet_41_val_seg", "cityscapes_fine_panoptic_val", "cityscapes_fine_instance_seg_val", "cityscapes_fine_sem_seg_val", "bdd10k_val_sem_seg", "bdd10k_40_panoptic_val"]
   # Supervised metrics evaluation.
   # TEST: ["vlp_captioning_val", "refcocog_val_umd", "vlp_val"]

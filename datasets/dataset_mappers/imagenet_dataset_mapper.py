@@ -7,7 +7,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import copy
 from PIL import Image
-
 # import logging
 
 import cv2
@@ -62,14 +61,14 @@ class ImageNetDatasetMapper:
         t.append(transforms.Resize(size_crop, interpolation=Image.BICUBIC))
         t.append(transforms.CenterCrop(size_test))
         self.transform = transforms.Compose(t)
-
+        
     @classmethod
     def from_config(cls, cfg, is_train=True):
         ret = {
             "is_train": is_train,
-            "size_train": cfg["INPUT"]["SIZE_TRAIN"],
-            "size_test": cfg["INPUT"]["SIZE_TEST"],
-            "size_crop": cfg["INPUT"]["SIZE_CROP"],
+            "size_train": cfg['INPUT']['SIZE_TRAIN'],
+            "size_test": cfg['INPUT']['SIZE_TEST'],
+            "size_crop": cfg['INPUT']['SIZE_CROP']
         }
         return ret
 
@@ -82,15 +81,15 @@ class ImageNetDatasetMapper:
             dict: a format that builtin models in detectron2 accept
         """
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
-        file_name = dataset_dict["file_name"]
-        image = Image.open(file_name).convert("RGB")
+        file_name = dataset_dict['file_name']
+        image = Image.open(file_name).convert('RGB')
 
         if self.is_train == False:
             image = self.transform(image)
-            image = torch.from_numpy(np.asarray(image).copy())
-            image = image.permute(2, 0, 1)
+            image = torch.from_numpy(np.asarray(image).copy())            
+            image = image.permute(2,0,1)
 
-        dataset_dict["image"] = image
-        dataset_dict["height"] = image.shape[1]
-        dataset_dict["width"] = image.shape[2]
+        dataset_dict['image'] = image
+        dataset_dict['height'] = image.shape[1]
+        dataset_dict['width'] = image.shape[2]
         return dataset_dict
