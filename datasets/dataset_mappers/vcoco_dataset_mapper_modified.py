@@ -148,17 +148,9 @@ class VCOCODatasetMapperModified:
                 for obj in dataset_dict.pop("annotations")
                 if obj.get("iscrowd", 0) == 0
             ]
-
-            boxes = [BoxMode.convert(obj["bbox"], obj["bbox_mode"], BoxMode.XYXY_ABS) for obj in annos]
-            target = Instances(image_shape)
-            target.gt_boxes = Boxes(boxes)
-
-            # classes = [obj["classes"] for obj in annos]
-            # classes = torch.tensor(classes, dtype=torch.int64)
-            
-            # target.gt_classes = classes
-
-            dataset_dict["instances"] = target
+            hio_annos = [hoi_anno for hoi_anno in dataset_dict.pop("hoi_annotation")]
+            instances = self._annotations_to_hoi_instances(annos, image_shape, hio_annos)            
+            dataset_dict["instances"] = instances
         return dataset_dict
 
 
@@ -167,28 +159,62 @@ class VCOCODatasetMapperModified:
         if isinstance(transforms, (tuple, list)):
             transforms = T.TransformList(transforms)
         # bbox is 1d (per-instance bounding box)
-        bbox = BoxMode.convert(annotation["bbox"], annotation["bbox_mode"], BoxMode.XYXY_ABS)
+        bbox = BoxMode.convert(annotation["bbox"], annotation["bbox_mode"], BoxMode.XYWH_ABS)
         # clip transformed bbox to image size
         bbox = transforms.apply_box(np.array([bbox]))[0].clip(min=0)
         annotation["bbox"] = np.minimum(bbox, list(image_size + image_size)[::-1])
         annotation["bbox_mode"] = BoxMode.XYXY_ABS
         return annotation
     
-    @staticmethod
-    def _annotations_to_hoi_instances(annos, image_size, is_train=True):
-        if is_train:
+    def _annotations_to_hoi_instances(self, annos, image_size, hio_annos):
+        if self.is_train:
+            boxes = [BoxMode.convert(obj["bbox"], obj["bbox_mode"], BoxMode.XYXY_ABS) for obj in annos]
             target = Instances(image_size)
-            classes = [obj["category_id"] for obj in annos]
-            boxes = []
-            for obj in [annos]:
-                boxes.append(BoxMode.convert(obj["bbox"], BoxMode.XYXY_ABS, BoxMode.XYWH_ABS))
-                tmp_boxes = obj["bbox"]
-
-            # Box
             target.gt_boxes = Boxes(boxes)
+            target.gt_areas = (target.gt_boxes.tensor[:, 2] - target.gt_boxes.tensor[:, 0]) * (target.gt_boxes.tensor[:, 3] - target.gt_boxes.tensor[:, 1])
 
-            classes = [int(obj["category_id"]) for obj in annos]
+            classes = [
+                (i, self._valid_obj_ids.index(obj["category_id"]))
+                for i, obj in enumerate(annos)
+            ]
             classes = torch.tensor(classes, dtype=torch.int64)
-            target.gt_classes = classes
 
+            kept_box_indices = [label[0] for label in classes]
+
+            classes = classes[:, 1]
+            target.gt_classes = classes
+            obj_labels, verb_labels, sub_boxes, obj_boxes = [], [], [], []
+            sub_obj_pairs = []
+
+            for hoi in hio_annos:
+                if hoi["subject_id"] not in kept_box_indices or (
+                    hoi["object_id"] != -1 and hoi["object_id"] not in kept_box_indices
+                ):
+                    continue
+                sub_obj_pair = (hoi["subject_id"], hoi["object_id"])
+                if sub_obj_pair in sub_obj_pairs:
+                    verb_labels[sub_obj_pairs.index(sub_obj_pair)][
+                        self._valid_verb_ids.index(hoi["category_id"])
+                    ] = 1
+                else:
+                    sub_obj_pairs.append(sub_obj_pair)
+                    if hoi["object_id"] == -1:
+                        obj_labels.append(torch.tensor(len(self._valid_obj_ids)))
+                    else:
+                        obj_labels.append(
+                            classes[kept_box_indices.index(hoi["object_id"])]
+                        )
+                    verb_label = [0 for _ in range(len(self._valid_verb_ids))]
+                    verb_label[self._valid_verb_ids.index(hoi["category_id"])] = 1
+                    sub_box = target.gt_boxes.tensor[kept_box_indices.index(hoi["subject_id"])]
+                    if hoi["object_id"] == -1:
+                        obj_box = torch.zeros((4,), dtype=torch.float32)
+                    else:
+                        obj_box = target.gt_boxes.tensor[
+                            kept_box_indices.index(hoi["object_id"])
+                        ]
+                    verb_labels.append(verb_label)
+                    sub_boxes.append(sub_box)
+                    obj_boxes.append(obj_box)
+            
         return target
