@@ -1416,9 +1416,9 @@ def draw_hoi_results(images, hoi_results, title="Predicted_Result", is_save=Fals
                     (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
                                     fill=False, color=color/256, linewidth=3))
 
-            ax.add_patch(plt.Rectangle(
-                (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
-                                fill=False, color=color/256, linewidth=3))
+            # ax.add_patch(plt.Rectangle(
+            #     (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
+            #                     fill=False, color=color/256, linewidth=3))
 
             ax.text(center_coord_x, center_coord_y, result_text, fontsize=15,
                     bbox=dict(facecolor='yellow', alpha=0.5))
@@ -1447,14 +1447,14 @@ def createDirectory(directory):
         print("Error: Failed to create the directory.")
 
 
-def plot_obj_attentions(outputs, org_images, orig_target_sizes, conv_features, dec_attn_weights, thr=0.5, cmap='jet'):
-    probas = outputs['pred_obj_logits'].softmax(-1)[:, :-1]
+def draw_obj_attentions(outputs, org_image, orig_target_sizes, conv_features, dec_attn_weights, thr=0.5, cmap='jet'):
+    probas = outputs['pred_obj_logits'].softmax(-1)[0, :, :-1]
     keep = probas.max(-1).values > thr
     obj_scores, obj_labels = probas[..., :-1].max(-1)
-    out_bbox = outputs['pred_obj_boxes'][keep]
+    out_bbox = outputs['pred_obj_boxes'][0, keep]
     if out_bbox.numel() != 0:
-        h, w = conv_features['0'].tensors.shape[-2:]
-        img_h, img_w = np.asarray(org_images).shape[1], np.asarray(org_images).shape[0]
+        h, w = conv_features['res5'].shape[-2:]
+        img_h, img_w = np.asarray(org_image).shape[1], np.asarray(org_image).shape[0]
         # img_h, img_w = (640, 480)
         bboxes_scaled = rescale_bboxes(out_bbox, orig_target_sizes)
         if len(bboxes_scaled) == 1:
@@ -1465,8 +1465,8 @@ def plot_obj_attentions(outputs, org_images, orig_target_sizes, conv_features, d
             xmax = bboxes_scaled[0][2]
             ymax = bboxes_scaled[0][3]
             ax = axs
-            ax.imshow(org_images)
-            attention_map = dec_attn_weights[idx].view(h, w).detach().cpu().numpy()
+            ax.imshow(org_image)
+            attention_map = dec_attn_weights[0, idx].view(h, w).detach().cpu().numpy()
             attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
             attention_map = cv2.resize(
                 attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
@@ -1491,8 +1491,8 @@ def plot_obj_attentions(outputs, org_images, orig_target_sizes, conv_features, d
 
             for idx, ax_i, (xmin, ymin, xmax, ymax) in zip(keep.nonzero(), axs.flatten(), bboxes_scaled):
                 ax = ax_i
-                ax.imshow(org_images)
-                attention_map = dec_attn_weights[idx].view(h, w).detach().cpu().numpy()
+                ax.imshow(org_image)
+                attention_map = dec_attn_weights[0, idx].view(h, w).detach().cpu().numpy()
                 attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
                 attention_map = cv2.resize(
                     attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
@@ -1516,63 +1516,62 @@ def plot_obj_attentions(outputs, org_images, orig_target_sizes, conv_features, d
         plt.show()
 
 
-def plot_hoi_attention(org_images, hoi_results, conv_features, dec_attn_weights, cmap='jet', alpha=0.1):
-    for i in range(len(org_images)):
-        image = org_images[i]
-        plt.figure(figsize=(8,6))
-        img_h, img_w = np.asarray(image).shape[1], np.asarray(image).shape[0]
-        plt.imshow(image)
-        ax = plt.gca()
-        ax.axis('off')
-        COLORS = np.random.uniform(0, 255, size=(len(valid_obj_ids)+1, 3))
-        hoi_result = hoi_results[i]
-        if hoi_result:
-            print(f"Detect {len(hoi_result)} HOI!!")
-        for color_id, r in enumerate(hoi_result):
-            # print(f"Query: {r['object_id']-100}")
-            category_id_verb = r['category_id']
-            object_bbox = r['object_bbox']['bbox']
-            object_id = r['object_bbox']['category_id']
-            subject_id = 0
-            score = r['score']
-            subject_bbox = r['subject_id']['bbox']
+def draw_hoi_attention(hoi_results, org_image, conv_features, dec_attn_weights, cmap='jet', alpha=0.1):
+    image = org_image
+    plt.figure(figsize=(8,6))
+    img_h, img_w = np.asarray(image).shape[1], np.asarray(image).shape[0]
+    plt.imshow(image)
+    ax = plt.gca()
+    ax.axis('off')
+    COLORS = np.random.uniform(0, 255, size=(len(valid_obj_ids)+1, 3))
+    hoi_result = hoi_results[0]
+    if hoi_result:
+        print(f"Detect {len(hoi_result)} HOI!!")
+    for color_id, r in enumerate(hoi_result):
+        # print(f"Query: {r['object_id']-100}")
+        category_id_verb = r['category_id']
+        object_bbox = r['object_bbox']['bbox']
+        object_id = r['object_bbox']['category_id']
+        subject_id = 0
+        score = r['score']
+        subject_bbox = r['subject_id']['bbox']
 
-            color = COLORS[color_id]
+        color = COLORS[color_id]
 
-            center_coord_x = int((object_bbox[0] + object_bbox[2]) / 2)
-            center_coord_y = int(object_bbox[1]) + 20
-            sub_xmin, sub_ymin, sub_xmax, sub_ymax = subject_bbox[0], subject_bbox[1], subject_bbox[2], subject_bbox[3]
-            obj_xmin, obj_ymin, obj_xmax, obj_ymax = object_bbox[0], object_bbox[1], object_bbox[2], object_bbox[3]
+        center_coord_x = int((object_bbox[0] + object_bbox[2]) / 2)
+        center_coord_y = int(object_bbox[1]) + 20
+        sub_xmin, sub_ymin, sub_xmax, sub_ymax = subject_bbox[0], subject_bbox[1], subject_bbox[2], subject_bbox[3]
+        obj_xmin, obj_ymin, obj_xmax, obj_ymax = object_bbox[0], object_bbox[1], object_bbox[2], object_bbox[3]
 
-            score *= 100
+        score *= 100
 
-            result_text = f"<{coco_class_list[subject_id]}, {verb_classes[category_id_verb]}, {coco_class_list[object_id]}> ({int(score)}%)"
-            
+        result_text = f"<{coco_class_list[subject_id]}, {verb_classes[category_id_verb]}, {coco_class_list[object_id]}> ({int(score)}%)"
+        
 
-            if coco_class_list[object_id] is None:
-                object_id = subject_id
-                result_text = f"<{coco_class_list[object_id]}, {verb_classes[category_id_verb]}> ({int(score)}%)"
-            
-            # Object와 Human을 같이 그리기 위해!!!
-            if object_id != 80 and object_id != 0:
-                ax.add_patch(plt.Rectangle(
-                    (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
-                                    fill=False, color=color/256, linewidth=1))
-
+        if coco_class_list[object_id] is None:
+            object_id = subject_id
+            result_text = f"<{coco_class_list[object_id]}, {verb_classes[category_id_verb]}> ({int(score)}%)"
+        
+        # Object와 Human을 같이 그리기 위해!!!
+        if object_id != 80 and object_id != 0:
             ax.add_patch(plt.Rectangle(
-                (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
+                (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
                                 fill=False, color=color/256, linewidth=1))
 
-            ax.text(center_coord_x, center_coord_y, result_text, fontsize=15,
-                    bbox=dict(facecolor='yellow', alpha=0.5))
+        ax.add_patch(plt.Rectangle(
+            (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
+                            fill=False, color=color/256, linewidth=1))
 
-            h, w = conv_features['0'].tensors.shape[-2:]
-            query_idx = r['object_id']-100
-            attention_map = dec_attn_weights[i, query_idx].view(h, w).detach().cpu().numpy()
-            attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
-            attention_map = cv2.resize(
-                attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
-            )
-            print(result_text)
-            ax.imshow(attention_map, alpha=alpha, cmap=cmap)
-        plt.show()
+        ax.text(center_coord_x, center_coord_y, result_text, fontsize=15,
+                bbox=dict(facecolor='yellow', alpha=0.5))
+
+        h, w = conv_features['res5'].shape[-2:]
+        query_idx = r['object_id']-100
+        attention_map = dec_attn_weights[0, query_idx].view(h, w).detach().cpu().numpy()
+        attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
+        attention_map = cv2.resize(
+            attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
+        )
+        print(result_text)
+        ax.imshow(attention_map, alpha=alpha, cmap=cmap)
+    plt.show()
