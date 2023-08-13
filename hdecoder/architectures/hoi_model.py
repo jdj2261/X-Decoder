@@ -1,8 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 from typing import Tuple
 
-import itertools
 import torch
+import numpy as np
 from torch import nn
 from torch.nn import functional as F
 
@@ -19,6 +19,8 @@ from ..modules.matcher import HungarianMatcherHOI
 from ..modules.postprocessing import PostProcessHOI
 from datasets.utils.misc import all_gather
 from copy import deepcopy
+
+from utils.box_ops import box_cxcywh_to_xyxy
 
 class CDNHOI(nn.Module):
     @configurable
@@ -178,8 +180,89 @@ class CDNHOI(nn.Module):
 
         return results
     
-    def hoi_inference(self):
-        pass
+
+    @torch.no_grad()
+    def hoi_inference(self, image_ori, orig_size, transform, thr=0.1, return_only_outputs=False):
+
+        height, width = orig_size
+        image = transform(image_ori)
+        image = np.asarray(image)
+        image_ori = np.asarray(image_ori)
+        images = torch.from_numpy(image.copy()).permute(2,0,1).cuda()
+
+        orig_target_sizes = torch.as_tensor([int(height), int(width)])
+        batched_inputs = [{'image': images, 'orig_size':orig_target_sizes}]
+        
+        images = [x["image"].to(self.device) for x in batched_inputs]
+        images = [(x - self.pixel_mean) / self.pixel_std for x in images]
+        images = ImageList.from_tensors(images, 32)
+
+        features = self.backbone(images.tensor)
+        outputs = self.hoid_head(features, mask=None)
+
+        if return_only_outputs:
+            return outputs
+        # print(outputs)
+
+        out_obj_logits = outputs['pred_obj_logits']
+        out_verb_logits = outputs['pred_verb_logits']
+        out_sub_boxes =  outputs['pred_sub_boxes']
+        out_obj_boxes = outputs['pred_obj_boxes']
+
+        obj_prob = F.softmax(out_obj_logits, -1)
+        obj_scores, obj_labels = obj_prob[..., :-1].max(-1)
+        verb_scores = out_verb_logits.sigmoid()
+
+        img_h = torch.as_tensor([orig_target_sizes[0]]).cuda(self.device)
+        img_w = torch.as_tensor([orig_target_sizes[1]]).cuda(self.device)
+
+        scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1).to(verb_scores.device)
+
+        sub_boxes = box_cxcywh_to_xyxy(out_sub_boxes)
+        sub_boxes = sub_boxes * scale_fct[:, None, :]
+        obj_boxes = box_cxcywh_to_xyxy(out_obj_boxes)
+        obj_boxes = obj_boxes * scale_fct[:, None, :]
+
+        results = []
+        for os, ol, vs, sb, ob in zip(obj_scores, obj_labels, verb_scores, sub_boxes, obj_boxes):
+            sl = torch.full_like(ol, 0)
+            l = torch.cat((sl, ol))
+            b = torch.cat((sb, ob))
+            bboxes = [{'bbox': bbox, 'category_id': label} for bbox, label in zip(b.to('cpu').numpy(), l.to('cpu').numpy())]
+
+            hoi_scores = vs * os.unsqueeze(1)
+
+            verb_labels = torch.arange(hoi_scores.shape[1]).view(1, -1).expand(hoi_scores.shape[0], -1)
+
+            ids = torch.arange(b.shape[0])
+            hois = [{'subject_id': subject_id, 'object_id': object_id, 'category_id': category_id, 'score': score} for
+                    subject_id, object_id, category_id, score in zip(ids[:ids.shape[0] // 2].to('cpu').numpy(),
+                                                                    ids[ids.shape[0] // 2:].to('cpu').numpy(),
+                                                                    verb_labels.to('cpu').numpy(), hoi_scores.to('cpu').numpy())]
+            current_result = {'predictions': bboxes, 'hoi_prediction': hois}
+            results.append(current_result)
+
+        results_filtered = []
+        for i in range(len(results)):
+            result_filtered = []
+            result = results[i]
+            for h in result['hoi_prediction']:
+                score = np.max(h['score'])
+                if score > thr:
+                    obj_id =  h['object_id']
+                    sub_id =  h['subject_id']
+
+                    index = np.argmax(h['score'])
+                    filtered_dict = { 'category_id': h['category_id'][index],
+                            'object_id': obj_id,
+                            'score': score,
+                            'object_bbox' : result['predictions'][obj_id],
+                            'subject_id' : result['predictions'][sub_id],
+                            }
+                    result_filtered.append(filtered_dict)
+            results_filtered.append(result_filtered)
+        return results_filtered
+
 
 @register_model
 def get_hoi_model(cfg, **kwargs):

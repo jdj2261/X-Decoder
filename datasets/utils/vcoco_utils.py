@@ -463,3 +463,8 @@ def random_color():
     g = int(rdn * 4447) % 255
     r = int(rdn * 6563) % 255
     return b, g, r
+
+def get_random_images(image_root:str, nums=20, seed=0):
+    random.seed(seed)
+    images = [os.path.abspath(os.path.join(image_root, image)) for image in os.listdir(image_root)]
+    return random.sample(images, k=nums)

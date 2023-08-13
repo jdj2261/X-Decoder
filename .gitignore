@@ -112,3 +112,4 @@ output/*
 v-coco
 v-coco/*
 wandb
+checkpoints

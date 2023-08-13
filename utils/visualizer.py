@@ -3,9 +3,12 @@ import colorsys
 import logging
 import math
 import numpy as np
+import datetime
+import os
 from enum import Enum, unique
 import cv2
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import matplotlib.colors as mplc
 import matplotlib.figure as mplfigure
 import pycocotools.mask as mask_util
@@ -25,6 +28,9 @@ from detectron2.structures import (
 from detectron2.utils.file_io import PathManager
 
 from detectron2.utils.colormap import random_color
+from datasets.utils.vcoco_utils import valid_obj_ids, verb_classes, coco_class_list
+
+from utils.box_ops import rescale_bboxes
 
 logger = logging.getLogger(__name__)
 
@@ -1367,3 +1373,206 @@ class Visualizer:
             to the image.
         """
         return self.output
+
+
+def draw_hoi_results(images, hoi_results, title="Predicted_Result", is_save=False, save_dir_name="output"):
+    for i in range(len(images)):
+        image = images[i]
+        plt.figure(figsize=(8,6))
+        plt.title(title, fontsize = 40)
+        plt.imshow(image)
+        ax = plt.gca()
+        COLORS = np.random.uniform(0, 255, size=(len(valid_obj_ids)+1, 3))
+        hoi_result = hoi_results[i]
+ 
+        if hoi_result:
+            print(f"Detect {len(hoi_result)} HOI!!")
+        for color_id, r in enumerate(hoi_result):
+            
+            # print(f"Query: {r['object_id']-100}")
+            category_id_verb = r['category_id']
+            object_bbox = r['object_bbox']['bbox']
+            object_id = r['object_bbox']['category_id']
+            subject_id = 0
+            score = r['score']
+            subject_bbox = r['subject_id']['bbox']
+
+            color = COLORS[color_id]
+
+            center_coord_x = int((object_bbox[0] + object_bbox[2]) / 2)
+            center_coord_y = int(object_bbox[1]) + 20
+            sub_xmin, sub_ymin, sub_xmax, sub_ymax = subject_bbox[0], subject_bbox[1], subject_bbox[2], subject_bbox[3]
+            obj_xmin, obj_ymin, obj_xmax, obj_ymax = object_bbox[0], object_bbox[1], object_bbox[2], object_bbox[3]
+            score *= 100
+
+            result_text = f"<{coco_class_list[subject_id]}, {verb_classes[category_id_verb]}, {coco_class_list[object_id]}> ({int(score)}%)"
+            
+            if coco_class_list[object_id] is None:
+                object_id = subject_id
+                result_text = f"<{coco_class_list[object_id]}, {verb_classes[category_id_verb]}> ({int(score)}%)"
+            
+            if object_id != 80 and object_id != 0:
+                ax.add_patch(plt.Rectangle(
+                    (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
+                                    fill=False, color=color/256, linewidth=3))
+
+            ax.add_patch(plt.Rectangle(
+                (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
+                                fill=False, color=color/256, linewidth=3))
+
+            ax.text(center_coord_x, center_coord_y, result_text, fontsize=15,
+                    bbox=dict(facecolor='yellow', alpha=0.5))
+            print(result_text)
+        plt.axis('off')
+        
+        if is_save:
+            createDirectory(save_dir_name)
+            file_name = (
+                save_dir_name
+                + "/"
+                + title
+                + "_{}.png".format(datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+            )
+            print(f"Save {file_name}")
+            plt.savefig(file_name)
+        plt.show()
+
+
+def createDirectory(directory):
+    try:
+        if not os.path.exists(directory):
+            print(f"Create {directory} direcoty")
+            os.makedirs(directory)
+    except OSError:
+        print("Error: Failed to create the directory.")
+
+
+def plot_obj_attentions(outputs, org_images, orig_target_sizes, conv_features, dec_attn_weights, thr=0.5, cmap='jet'):
+    probas = outputs['pred_obj_logits'].softmax(-1)[:, :-1]
+    keep = probas.max(-1).values > thr
+    obj_scores, obj_labels = probas[..., :-1].max(-1)
+    out_bbox = outputs['pred_obj_boxes'][keep]
+    if out_bbox.numel() != 0:
+        h, w = conv_features['0'].tensors.shape[-2:]
+        img_h, img_w = np.asarray(org_images).shape[1], np.asarray(org_images).shape[0]
+        # img_h, img_w = (640, 480)
+        bboxes_scaled = rescale_bboxes(out_bbox, orig_target_sizes)
+        if len(bboxes_scaled) == 1:
+            fig, axs = plt.subplots(ncols=len(bboxes_scaled), nrows=1, figsize=(4*len(bboxes_scaled), 5))
+            idx = keep.nonzero()
+            xmin = bboxes_scaled[0][0]
+            ymin = bboxes_scaled[0][1]
+            xmax = bboxes_scaled[0][2]
+            ymax = bboxes_scaled[0][3]
+            ax = axs
+            ax.imshow(org_images)
+            attention_map = dec_attn_weights[idx].view(h, w).detach().cpu().numpy()
+            attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
+            attention_map = cv2.resize(
+                attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
+            )
+            attention_img = ax.imshow(attention_map, alpha=0.3, cmap=cmap)
+            ax.axis('off')
+            ax.set_title(f'')
+            # plt.colorbar(attention_img, ax=ax)
+
+            ax.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
+                                    fill=False, color='blue', linewidth=3))
+            class_name = coco_class_list[probas[idx].argmax()]
+            if class_name is None:
+                class_name = "person"
+            ax.set_title(f"{class_name}[Q_id: {idx.item()}]")
+        else:
+            len_image = len(bboxes_scaled)
+            if len_image > 4:
+                fig, axs = plt.subplots(ncols=4, nrows=(len(bboxes_scaled) + 3) // 4, figsize=(16, 10))
+            else:
+                fig, axs = plt.subplots(ncols=len_image, nrows=1, figsize=(8 *len(bboxes_scaled), 5))
+
+            for idx, ax_i, (xmin, ymin, xmax, ymax) in zip(keep.nonzero(), axs.flatten(), bboxes_scaled):
+                ax = ax_i
+                ax.imshow(org_images)
+                attention_map = dec_attn_weights[idx].view(h, w).detach().cpu().numpy()
+                attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
+                attention_map = cv2.resize(
+                    attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
+                )
+                attention_img = ax.imshow(attention_map, alpha=0.7, cmap=cmap)
+                ax.axis('off')
+                ax.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
+                                        fill=False, color='blue', linewidth=3))
+                ax.axis('off')
+                class_name = coco_class_list[probas[idx].argmax()]
+                if class_name is None:
+                    class_name = "person"
+                ax.set_title(f"{class_name}[Q_id: {idx.item()}]")
+
+            for ax in axs.flatten()[len(bboxes_scaled):]:
+                ax.axis('off')
+            plt.subplots_adjust(wspace=0.2)  # 가로 간격 조절
+            plt.subplots_adjust(hspace=0.4)  # 세로 간격 조절
+            plt.tight_layout()
+        # fig.suptitle("Attention Map", fontsize=20)
+        plt.show()
+
+
+def plot_hoi_attention(org_images, hoi_results, conv_features, dec_attn_weights, cmap='jet', alpha=0.1):
+    for i in range(len(org_images)):
+        image = org_images[i]
+        plt.figure(figsize=(8,6))
+        img_h, img_w = np.asarray(image).shape[1], np.asarray(image).shape[0]
+        plt.imshow(image)
+        ax = plt.gca()
+        ax.axis('off')
+        COLORS = np.random.uniform(0, 255, size=(len(valid_obj_ids)+1, 3))
+        hoi_result = hoi_results[i]
+        if hoi_result:
+            print(f"Detect {len(hoi_result)} HOI!!")
+        for color_id, r in enumerate(hoi_result):
+            # print(f"Query: {r['object_id']-100}")
+            category_id_verb = r['category_id']
+            object_bbox = r['object_bbox']['bbox']
+            object_id = r['object_bbox']['category_id']
+            subject_id = 0
+            score = r['score']
+            subject_bbox = r['subject_id']['bbox']
+
+            color = COLORS[color_id]
+
+            center_coord_x = int((object_bbox[0] + object_bbox[2]) / 2)
+            center_coord_y = int(object_bbox[1]) + 20
+            sub_xmin, sub_ymin, sub_xmax, sub_ymax = subject_bbox[0], subject_bbox[1], subject_bbox[2], subject_bbox[3]
+            obj_xmin, obj_ymin, obj_xmax, obj_ymax = object_bbox[0], object_bbox[1], object_bbox[2], object_bbox[3]
+
+            score *= 100
+
+            result_text = f"<{coco_class_list[subject_id]}, {verb_classes[category_id_verb]}, {coco_class_list[object_id]}> ({int(score)}%)"
+            
+
+            if coco_class_list[object_id] is None:
+                object_id = subject_id
+                result_text = f"<{coco_class_list[object_id]}, {verb_classes[category_id_verb]}> ({int(score)}%)"
+            
+            # Object와 Human을 같이 그리기 위해!!!
+            if object_id != 80 and object_id != 0:
+                ax.add_patch(plt.Rectangle(
+                    (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
+                                    fill=False, color=color/256, linewidth=1))
+
+            ax.add_patch(plt.Rectangle(
+                (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
+                                fill=False, color=color/256, linewidth=1))
+
+            ax.text(center_coord_x, center_coord_y, result_text, fontsize=15,
+                    bbox=dict(facecolor='yellow', alpha=0.5))
+
+            h, w = conv_features['0'].tensors.shape[-2:]
+            query_idx = r['object_id']-100
+            attention_map = dec_attn_weights[i, query_idx].view(h, w).detach().cpu().numpy()
+            attention_map = (attention_map - attention_map.min()) / (attention_map.max() - attention_map.min())
+            attention_map = cv2.resize(
+                attention_map, (img_h, img_w), interpolation=cv2.INTER_CUBIC
+            )
+            print(result_text)
+            ax.imshow(attention_map, alpha=alpha, cmap=cmap)
+        plt.show()
