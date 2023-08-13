@@ -13,7 +13,7 @@ PIPELINE: HDecoderPipeline
 TRAINER: hdecoder
 SAVE_DIR: 'data/output/test'
 base_path: "./"
-WANDB: true
+WANDB: false
 AUX_LOSS: true
 
 # Resume Logistic
