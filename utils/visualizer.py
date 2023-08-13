@@ -1416,9 +1416,9 @@ def draw_hoi_results(images, hoi_results, title="Predicted_Result", is_save=Fals
                     (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
                                     fill=False, color=color/256, linewidth=3))
 
-            # ax.add_patch(plt.Rectangle(
-            #     (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
-            #                     fill=False, color=color/256, linewidth=3))
+            ax.add_patch(plt.Rectangle(
+                (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,
+                                fill=False, color=color/256, linewidth=3))
 
             ax.text(center_coord_x, center_coord_y, result_text, fontsize=15,
                     bbox=dict(facecolor='yellow', alpha=0.5))
