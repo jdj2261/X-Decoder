@@ -155,8 +155,8 @@ SOLVER:
   LR_STEP: [60, 80]
   
   LR_MULTIPLIER:
-    backbone: 1
-    # lang_encoder: 0.1
+    backbone: 0.1
+    lang_encoder: 0.1
   WEIGHT_DECAY_NORM: 0.0
   WEIGHT_DECAY_EMBED: 0.0
   CLIP_GRADIENTS:
