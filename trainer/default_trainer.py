@@ -300,21 +300,21 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                         self.wdb.log({"mAP_all": best_mAP_all})
                         self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
                     
-                    if best_mAP_all > best_perf:
-                        best_perf = best_mAP_all
-                        best_model = True
-                    else:
-                        best_model = False
+                    # if best_mAP_all > best_perf:
+                    #     best_perf = best_mAP_all
+                    #     best_model = True
+                    # else:
+                    #     best_model = False
 
-                    if best_model:
-                        save_dir = os.path.join(self.save_folder, prev_tags)
-                        if self.opt['rank'] == 0:
-                            save_dir = os.path.abspath(save_dir)
-                            shutil.rmtree(save_dir)
-                            logger.info(f"removed previous save directory..")
+                    # if best_model:
+                    #     save_dir = os.path.join(self.save_folder, prev_tags)
+                    #     if self.opt['rank'] == 0:
+                    #         save_dir = os.path.abspath(save_dir)
+                    #         shutil.rmtree(save_dir)
+                    #         logger.info(f"removed previous save directory..")
 
-                        self.save_checkpoint(self.train_params['num_updates'], is_best=True)
-                        prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
+                    #     self.save_checkpoint(self.train_params['num_updates'], is_best=True)
+                    #     prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
             self.lr_schedulers['default'].step()
