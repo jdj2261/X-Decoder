@@ -136,7 +136,7 @@ DATALOADER:
 
 # Detectron2 training config for optimizer and lr scheduler
 SOLVER:
-  BASE_LR: 0.0005
+  BASE_LR: 0.0001
   STEPS: [0.88889, 0.96296]
   MAX_ITER: 1
   GAMMA: 0.5
