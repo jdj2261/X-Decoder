@@ -114,7 +114,10 @@ MODEL:
     MATCHING_LOSS_COEF: 1
     EOS_COEF: 0.1
     SIZE_DIVISIBILITY: 32
-
+    
+  FREEZE_NAME:
+    - "backbone": True
+    - "encoder": True
 INPUT:
   PIXEL_MEAN: [123.675, 116.280, 103.530]
   PIXEL_STD: [58.395, 57.120, 57.375]
@@ -152,8 +155,8 @@ SOLVER:
   LR_STEP: [60, 80]
   
   LR_MULTIPLIER:
-    backbone: 0.1
-    lang_encoder: 0.1
+    backbone: 1
+    # lang_encoder: 0.1
   WEIGHT_DECAY_NORM: 0.0
   WEIGHT_DECAY_EMBED: 0.0
   CLIP_GRADIENTS:
@@ -168,26 +171,6 @@ SOLVER:
     "backbone": false
     "encoder": false
     
-# VCOCO:
-#   INPUT:
-#     MIN_SIZE_TEST: 512
-#     MAX_SIZE_TEST: 1024
-#     PIXEL_MEAN: [123.675, 116.280, 103.530]
-#     PIXEL_STD: [58.395, 57.120, 57.375]
-#     NUM_QUERIES: 100
-#     DATASET_MAPPER_NAME: "vcoco"
-#   DATALOADER:
-#     FILTER_EMPTY_ANNOTATIONS: False
-#     NUM_WORKERS: 0
-#     LOAD_PROPOSALS: False
-#     SAMPLER_TRAIN: "TrainingSampler"
-#     ASPECT_RATIO_GROUPING: False
-#   TEST:
-#     BATCH_SIZE_TOTAL: 2
-#   TRAIN:
-#     BATCH_SIZE_TOTAL: 2
-#     BATCH_SIZE_PER_GPU: 1
-
 VCOCO:
   INPUT:
     MIN_SIZE_TRAIN: 800
