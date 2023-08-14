@@ -115,9 +115,6 @@ MODEL:
     EOS_COEF: 0.1
     SIZE_DIVISIBILITY: 32
     
-  FREEZE_NAME:
-    - "backbone": True
-    - "encoder": True
 INPUT:
   PIXEL_MEAN: [123.675, 116.280, 103.530]
   PIXEL_STD: [58.395, 57.120, 57.375]
