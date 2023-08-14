@@ -235,7 +235,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         
         best_perf = 0.0
         best_model = False
-        prev_tags = ""
+        prev_tags = "_best"
 
         for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
             self.train_params['current_epoch_idx'] = epoch
@@ -292,6 +292,8 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                 # evaluate and save ckpt every epoch
                 if batch_idx + 1 == self.train_params['updates_per_epoch']:
                     results = self._eval_on_set(self.save_folder)
+                    self.save_checkpoint(self.train_params['num_updates'])
+                
                     best_mAP_all = results['vcoco_val/vcoco']['mAP_all']
 
                     if self.wdb:
@@ -311,8 +313,8 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                             shutil.rmtree(save_dir)
                             logger.info(f"removed previous save directory..")
 
-                        self.save_checkpoint(self.train_params['num_updates'])
-                        prev_tags = str(self.train_params['num_updates']).zfill(8)
+                        self.save_checkpoint(self.train_params['num_updates'], is_best=True)
+                        prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
             self.lr_schedulers['default'].step()

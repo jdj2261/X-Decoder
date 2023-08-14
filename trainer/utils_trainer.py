@@ -73,8 +73,10 @@ class UtilsTrainer(DistributedTrainer):
             self.raw_models[module_name] = self.raw_models[module_name].from_pretrained(load_path)
             self.raw_models[module_name].to(self.opt['device'])
 
-    def save_checkpoint(self, tag):
+    def save_checkpoint(self, tag, is_best=False):
         tag = str(tag).zfill(8)
+        if is_best:
+            tag += "_best"
         logger.warning('Saving best checkpoint...')
 
         resume_epoch_idx = self.train_params['current_epoch_idx']

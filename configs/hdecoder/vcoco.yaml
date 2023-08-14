@@ -114,10 +114,7 @@ MODEL:
     MATCHING_LOSS_COEF: 1
     EOS_COEF: 0.1
     SIZE_DIVISIBILITY: 32
-    
-  FREEZE_NAME:
-    - "backbone": True
-    - "encoder": True
+
 INPUT:
   PIXEL_MEAN: [123.675, 116.280, 103.530]
   PIXEL_STD: [58.395, 57.120, 57.375]
@@ -139,7 +136,7 @@ DATALOADER:
 
 # Detectron2 training config for optimizer and lr scheduler
 SOLVER:
-  BASE_LR: 0.0001
+  BASE_LR: 0.0005
   STEPS: [0.88889, 0.96296]
   MAX_ITER: 1
   GAMMA: 0.5
@@ -168,8 +165,8 @@ SOLVER:
     ENABLED: True
   MAX_NUM_EPOCHS: 90 #50
   FIX_PARAM:
-    "backbone": True
-    "encoder": True
+    "backbone": false
+    "encoder": false
     
 # VCOCO:
 #   INPUT:
