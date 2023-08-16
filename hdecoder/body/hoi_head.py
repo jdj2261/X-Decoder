@@ -66,6 +66,7 @@ class CDN(nn.Module):
         self,
         features,
         mask,
+        task="hoi"
     ):
         # Encoder
         encoder_features, pos = self.encoder(features)
@@ -74,30 +75,35 @@ class CDN(nn.Module):
         pos_embed = pos.flatten(2).permute(2, 0, 1)
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
 
-        # Decoder
-        hopd_out, interaction_decoder_out, _ = self.hoi_decoder(encoder_features, mask, query_embed, pos_embed)
-    
-        outputs_sub_coord = self.sub_bbox_embed(hopd_out).sigmoid()
-        outputs_obj_coord = self.obj_bbox_embed(hopd_out).sigmoid()
-        outputs_obj_class = self.obj_class_embed(hopd_out)
-        outputs_verb_class = self.verb_class_embed(interaction_decoder_out)
+        # DETR 참고
+        if task == "obj_detect":
+            pass
 
-        out = {
-            'pred_obj_logits': outputs_obj_class[-1], 
-            'pred_verb_logits': outputs_verb_class[-1],
-            'pred_sub_boxes': outputs_sub_coord[-1], 
-            'pred_obj_boxes': outputs_obj_coord[-1]}        
+        if task == "hoi":
+            # Decoder
+            hopd_out, interaction_decoder_out, _ = self.hoi_decoder(encoder_features, mask, query_embed, pos_embed)
         
-        out['aux_outputs'] = self._set_aux_loss(
-            outputs_obj_class, 
-            outputs_verb_class,
-            outputs_sub_coord,
-            outputs_obj_coord)
+            outputs_sub_coord = self.sub_bbox_embed(hopd_out).sigmoid()
+            outputs_obj_coord = self.obj_bbox_embed(hopd_out).sigmoid()
+            outputs_obj_class = self.obj_class_embed(hopd_out)
+            outputs_verb_class = self.verb_class_embed(interaction_decoder_out)
+
+            out = {
+                'pred_obj_logits': outputs_obj_class[-1], 
+                'pred_verb_logits': outputs_verb_class[-1],
+                'pred_sub_boxes': outputs_sub_coord[-1], 
+                'pred_obj_boxes': outputs_obj_coord[-1]}        
+            
+            out['aux_outputs'] = self._set_aux_loss(
+                outputs_obj_class, 
+                outputs_verb_class,
+                outputs_sub_coord,
+                outputs_obj_coord)
 
         return out
     
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_obj_class, outputs_verb_class, outputs_sub_coord, outputs_obj_coord, outputs_matching=None):
+    def _set_aux_loss(self, outputs_obj_class, outputs_verb_class, outputs_sub_coord, outputs_obj_coord):
         min_dec_layers_num = min(self.dec_layers_hopd, self.dec_layers_interaction)
         return [{'pred_obj_logits': a, 'pred_verb_logits': b, 'pred_sub_boxes': c, 'pred_obj_boxes': d}
                 for a, b, c, d in zip(outputs_obj_class[-min_dec_layers_num : -1], outputs_verb_class[-min_dec_layers_num : -1], \
