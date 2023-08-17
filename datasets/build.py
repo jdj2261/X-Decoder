@@ -60,6 +60,7 @@ from .evaluation import (InstanceSegEvaluator,
                          COCOPanopticEvaluator,
                          GroundingEvaluator,
                          VCOCOEvaluator,
+                         OfficialVCOCOEvaluator
 )
 from xdecoder.utils import configurable
 from utils.distributed import get_world_size
@@ -606,10 +607,13 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
     if evaluator_type == "vcoco":
-        evaluator_list.append(VCOCOEvaluator(
-            dataset_name, 
-            correct_mat_dir=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).correct_mat_dir,
-            output_dir=output_folder))
+        if cfg["POSTPROCESS"]["OFFICIAL"]["USE"]:
+            evaluator_list.append(OfficialVCOCOEvaluator(
+                vsrl_annot_file=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).vsrl_annot_file,
+                coco_annot_file=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).coco_annot_file,
+                split_file=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).split_file))
+        else:
+            evaluator_list.append(VCOCOEvaluator(correct_mat_dir=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).correct_mat_dir))
 
     cfg_model_decoder_test = cfg["MODEL"]["DECODER"].get("TEST", None)
 

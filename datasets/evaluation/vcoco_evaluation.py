@@ -11,9 +11,7 @@ class VCOCOEvaluator(DatasetEvaluator):
 
     def __init__(
         self,
-        dataset_name,
         correct_mat_dir=None,
-        output_dir=None,
     ):
         self.overlap_iou = 0.5
         self.max_hois = 100

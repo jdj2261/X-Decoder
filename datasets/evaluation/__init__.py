@@ -6,3 +6,4 @@ from .captioning_evaluation import *
 from .panoptic_evaluation import *
 from .grounding_evaluation import *
 from .vcoco_evaluation import *
+from .official_vcoco_evaluation import *

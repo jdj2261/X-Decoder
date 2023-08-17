@@ -209,7 +209,7 @@ class SetCriterionHOI(nn.Module):
         if num_pos == 0:
             loss = loss - neg_loss
         else:
-            loss = loss - (pos_loss + neg_loss) / num_pos
+            loss = loss - (pos_loss + neg_loss) / (num_pos + 1e-6)
         return loss
 
     def _get_src_permutation_idx(self, indices):

@@ -16,7 +16,7 @@ from ..body.decoder.modules import MLP
 from ..body import build_hoi_head
 from ..modules.criterion import SetCriterionHOI
 from ..modules.matcher import HungarianMatcherHOI
-from ..modules.postprocessing import PostProcessHOI
+from ..modules.postprocessing import PostProcessHOI, OfficialPostProcessHOI
 from datasets.utils.misc import all_gather
 from copy import deepcopy
 
@@ -95,7 +95,10 @@ class CDNHOI(nn.Module):
             eos_coef=dec_cfg["EOS_COEF"], 
             losses=losses)
 
-        postprocessors = PostProcessHOI()
+        if cfg["POSTPROCESS"]["OFFICIAL"]["USE"]:
+            postprocessors = OfficialPostProcessHOI(correct_mat_dir=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).correct_mat_dir)
+        else:
+            postprocessors = PostProcessHOI()
 
         pixel_mean = cfg["INPUT"]["PIXEL_MEAN"]
         pixel_mean = cfg["INPUT"]["PIXEL_STD"]
@@ -177,7 +180,6 @@ class CDNHOI(nn.Module):
 
         # TODO
         results = self.postprocessors(outputs, orig_target_sizes)
-
         return results
     
 

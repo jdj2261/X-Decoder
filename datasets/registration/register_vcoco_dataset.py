@@ -9,12 +9,18 @@ _PREDEFINED_SPLITS_VCOCO_CAPTION = {
     "vcoco_train": (
         "v-coco/images/train2014",
         "v-coco/annotations/trainval_vcoco.json",
+        None,
+        None,
+        None,
         None
     ),
     "vcoco_val": (
         "v-coco/images/val2014", 
         "v-coco/annotations/test_vcoco.json", 
-        "v-coco/annotations/corre_vcoco.npy"
+        "v-coco/annotations/corre_vcoco.npy",
+        "v-coco/data/vcoco/vcoco_test.json",
+        "v-coco/data/instances_vcoco_all_2014.json",
+        "v-coco/data/splits/vcoco_test.ids",
     )
 }
 
@@ -158,16 +164,29 @@ def get_metadata():
     return meta
 
 
-def register_vcoco(name, metadata, image_root, annot_json, correct_mat_dir=None):
+def register_vcoco(
+        name, 
+        metadata, 
+        image_root, 
+        annot_json, 
+        correct_mat_dir=None,
+        vsrl_annot_file=None,
+        coco_file=None,
+        split_file=None
+    ):
     DatasetCatalog.register(
         name,
         lambda: load_vcoco_json(image_root, annot_json),
     )
+    
     MetadataCatalog.get(name).set(
         image_root=image_root,
         json_file=annot_json,
         evaluator_type="vcoco",
         correct_mat_dir=correct_mat_dir,
+        vsrl_annot_file=vsrl_annot_file,
+        coco_annot_file=coco_file,
+        split_file=split_file,
         ignore_label=255,
         label_divisor=1000,
         **metadata,
@@ -177,18 +196,27 @@ def register_vcoco(name, metadata, image_root, annot_json, correct_mat_dir=None)
 def register_all_vcoco(root):
     for (
         prefix,
-        (image_root, annot_root, correct_mat_dir),
+        (image_root, annot_root, correct_mat_dir, vsrl_annot_file, coco_file, split_file),
     ) in _PREDEFINED_SPLITS_VCOCO_CAPTION.items():
         if correct_mat_dir:
             correct_mat_dir = os.path.join(root, correct_mat_dir)
+        if vsrl_annot_file:
+            vsrl_annot_file = os.path.join(root, vsrl_annot_file)
+        if coco_file:
+            coco_file = os.path.join(root, coco_file)
+        if split_file:
+            split_file = os.path.join(root, split_file)
+
         register_vcoco(
             prefix,
             get_metadata(),
             os.path.join(root, image_root),
             os.path.join(root, annot_root),
-            correct_mat_dir
+            correct_mat_dir,
+            vsrl_annot_file,
+            coco_file,
+            split_file,
         )
-
 
 _root = os.getenv("DATASET", "./datasets")
 register_all_vcoco(_root)

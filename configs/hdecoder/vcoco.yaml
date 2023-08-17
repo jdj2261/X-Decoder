@@ -201,3 +201,8 @@ VCOCO:
   TRAIN:
     BATCH_SIZE_TOTAL: 2
     BATCH_SIZE_PER_GPU: 1
+
+POSTPROCESS:
+  OFFICIAL:
+    USE: false
+    "synario": 1
