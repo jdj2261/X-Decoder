@@ -245,11 +245,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
             self.lr_schedulers['default'].step()
             _lr = self.lr_schedulers['default'].get_last_lr()
-            for i, g in enumerate(self.optimizers['default'].param_groups):
-                is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
-                if is_close:
-                    g["lr"] = 1e-05
-                print({f"learning_rate {i}": g["lr"]})
                 
             epoch_start_time = datetime.now()
             for batch_idx, batch in enumerate(self.train_dataloaders):
@@ -260,7 +255,11 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                 self.train_params['current_batch_idx'] = batch_idx
                 prev_optim_steps = current_optim_steps
                 prev_total_batch_size = self.train_params['total_batch_size']
-
+                for i, g in enumerate(self.optimizers['default'].param_groups):
+                    is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
+                    if is_close:
+                        g["lr"] = 1e-05
+                    print({f"learning_rate {i}": g["lr"]})
                 # update
                 self.train_step(batch)
 
