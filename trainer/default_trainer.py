@@ -14,6 +14,7 @@ import json
 import random
 import logging
 import numpy as np
+import math
 import copy
 import contextlib
 import shutil
@@ -228,6 +229,16 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         Training
         """
         self.init_train()
+        self.lr_schedulers['default'].step()
+        _lr = self.lr_schedulers['default'].get_last_lr()
+        for i, g in enumerate(self.optimizers['default'].param_groups):
+            is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
+            if is_close:
+                g["lr"] = 1e-05
+            print({f"learning_rate {i}": g["lr"]})
+            # if self.wdb:
+            #     self.wdb.log({f"learning_rate {i}": g["lr"]})
+
         current_optim_steps = self._get_and_validate_current_optim_steps()
         num_epochs = self.opt['SOLVER']['MAX_NUM_EPOCHS']
 
@@ -317,7 +328,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                     #     prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
-            self.lr_schedulers['default'].step()
             logger.info(f"This epoch takes {datetime.now() - epoch_start_time}")
             logger.info(f"PROGRESS: {100.0 * (epoch + 1) / num_epochs:.2f}%")
             logger.info(f"Config files are at {self.opt['conf_files']}")
