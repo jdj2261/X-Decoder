@@ -229,15 +229,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         Training
         """
         self.init_train()
-        self.lr_schedulers['default'].step()
-        _lr = self.lr_schedulers['default'].get_last_lr()
-        for i, g in enumerate(self.optimizers['default'].param_groups):
-            is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
-            if is_close:
-                g["lr"] = 1e-05
-            print({f"learning_rate {i}": g["lr"]})
-            # if self.wdb:
-            #     self.wdb.log({f"learning_rate {i}": g["lr"]})
 
         current_optim_steps = self._get_and_validate_current_optim_steps()
         num_epochs = self.opt['SOLVER']['MAX_NUM_EPOCHS']
@@ -251,7 +242,15 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
             self.train_params['current_epoch_idx'] = epoch
             logger.info(f"Start epoch: {epoch} training.")
-            
+
+            self.lr_schedulers['default'].step()
+            _lr = self.lr_schedulers['default'].get_last_lr()
+            for i, g in enumerate(self.optimizers['default'].param_groups):
+                is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
+                if is_close:
+                    g["lr"] = 1e-05
+                print({f"learning_rate {i}": g["lr"]})
+                
             epoch_start_time = datetime.now()
             for batch_idx, batch in enumerate(self.train_dataloaders):
                 if self.train_params['current_epoch_idx'] == self.train_params['start_epoch_idx']:
@@ -273,9 +272,9 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                     log_every = self.opt.get("LOG_EVERY", 100)
                     if (current_optim_steps % log_every == 0) or (epoch == 0 and current_optim_steps <= log_first): # print logging
 
-                        last_lr = {}
-                        for module_name in self.model_names:
-                            last_lr[module_name] = self.lr_schedulers[module_name].get_last_lr()[0]
+                        # last_lr = {}
+                        # for module_name in self.model_names:
+                        #     last_lr[module_name] = self.lr_schedulers[module_name].get_last_lr()[0]
 
                         train_time_delta = (datetime.now() - train_prev_logged_time).total_seconds()
                         train_prev_logged_time = datetime.now()
@@ -283,16 +282,19 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                         memory = torch.cuda.max_memory_allocated() / MB
 
                         if self.opt['rank'] == 0:
+                            encoder_lr = self.lr_schedulers['default'].get_last_lr()[0]
+                            decoder_lr = self.lr_schedulers['default'].get_last_lr()[-1]
                             if self.wdb:
-                                self.wdb.log({"learning rate": list(last_lr.values())[0]})
+                                self.wdb.log({"learning rate": encoder_lr})
+                                self.wdb.log({"learning rate": decoder_lr})
                                 for key, obj in self.train_loss.losses.items():
                                     average_name = key + "_avg"
                                     self.wdb.log({average_name: obj.avg})
                                     
                             logger.info(f"epochs[{epoch:6}] optim steps[{batch_idx+1:.0f}/{self.dataset_length}] "
-                                        f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
+                                        f"encoder lr[{encoder_lr:.5e}] "
+                                        f"decoder lr[{decoder_lr:.5e}] "
                                         f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
-                                        # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
                                         f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
                                         f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
                                         f"total items[{self.train_params['total_batch_size']}] "

@@ -149,11 +149,11 @@ SOLVER:
   # LR_SCHEDULER_NAME: "StepLR"
   #   LR_DROP: 60
   LR_SCHEDULER_NAME: "MultiStepLR"
-  LR_STEP: [0, 1]
+  LR_STEP: [0, 1] #[60, 80]
   
   LR_MULTIPLIER:
     backbone: 0.1
-    lang_encoder: 0.1
+    encoder: 0.1
   WEIGHT_DECAY_NORM: 0.0
   WEIGHT_DECAY_EMBED: 0.0
   CLIP_GRADIENTS:
@@ -163,7 +163,7 @@ SOLVER:
     NORM_TYPE: 2.0
   AMP:
     ENABLED: True
-  MAX_NUM_EPOCHS: 3 #50
+  MAX_NUM_EPOCHS: 3 #90
   FIX_PARAM:
     "backbone": false
     "encoder": false
