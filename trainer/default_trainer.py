@@ -131,7 +131,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
         self.optimizers[model_name].zero_grad()
         self.train_params['optim_steps'][model_name] += 1
-        # self.lr_schedulers[model_name].step()
 
     def train_step(self, batch):
         self.grad_acc_batches.append(batch) # support batch accumulation
@@ -243,9 +242,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
             self.train_params['current_epoch_idx'] = epoch
             logger.info(f"Start epoch: {epoch} training.")
 
-            self.lr_schedulers['default'].step()
-            _lr = self.lr_schedulers['default'].get_last_lr()
-                
             epoch_start_time = datetime.now()
             for batch_idx, batch in enumerate(self.train_dataloaders):
                 if self.train_params['current_epoch_idx'] == self.train_params['start_epoch_idx']:
@@ -255,25 +251,25 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                 self.train_params['current_batch_idx'] = batch_idx
                 prev_optim_steps = current_optim_steps
                 prev_total_batch_size = self.train_params['total_batch_size']
-                for i, g in enumerate(self.optimizers['default'].param_groups):
+
+                # update
+                self.train_step(batch)
+                for i, g in enumerate(self.lr_schedulers['default'].optimizer.param_groups):
                     is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
                     if is_close:
                         g["lr"] = 1e-05
-                    print({f"learning_rate {i}": g["lr"]})
-                # update
-                self.train_step(batch)
 
                 current_optim_steps = self._get_and_validate_current_optim_steps()
-                
+
                 # logging
                 if prev_optim_steps != current_optim_steps:  # an optimizer update was made
                     log_first = self.opt.get("LOG_FIRST", 10)
                     log_every = self.opt.get("LOG_EVERY", 100)
                     if (current_optim_steps % log_every == 0) or (epoch == 0 and current_optim_steps <= log_first): # print logging
 
-                        # last_lr = {}
-                        # for module_name in self.model_names:
-                        #     last_lr[module_name] = self.lr_schedulers[module_name].get_last_lr()[0]
+                        last_lr = {}
+                        for module_name in self.model_names:
+                            last_lr[module_name] = self.lr_schedulers[module_name].optimizer.param_groups[0]['lr']
 
                         train_time_delta = (datetime.now() - train_prev_logged_time).total_seconds()
                         train_prev_logged_time = datetime.now()
@@ -281,25 +277,22 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                         memory = torch.cuda.max_memory_allocated() / MB
 
                         if self.opt['rank'] == 0:
-                            encoder_lr = self.lr_schedulers['default'].get_last_lr()[0]
-                            decoder_lr = self.lr_schedulers['default'].get_last_lr()[-1]
                             if self.wdb:
-                                self.wdb.log({"learning rate": encoder_lr})
-                                self.wdb.log({"learning rate": decoder_lr})
+                                self.wdb.log({"learning rate": list(last_lr.values())[0]})
                                 for key, obj in self.train_loss.losses.items():
                                     average_name = key + "_avg"
                                     self.wdb.log({average_name: obj.avg})
                                     
                             logger.info(f"epochs[{epoch:6}] optim steps[{batch_idx+1:.0f}/{self.dataset_length}] "
-                                        f"encoder lr[{encoder_lr:.5e}] "
-                                        f"decoder lr[{decoder_lr:.5e}] "
-                                        f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
-                                        f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
-                                        f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
-                                        f"total items[{self.train_params['total_batch_size']}] "
-                                        f"mini batches[{self.train_params['num_updates']:6}] "
-                                        f"memory[{memory:.0f}] "
-                                        f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
+                                f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
+                                f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
+                                # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
+                                f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
+                                f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
+                                f"total items[{self.train_params['total_batch_size']}] "
+                                f"mini batches[{self.train_params['num_updates']:6}] "
+                                f"memory[{memory:.0f}] "
+                                f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
 
                 # evaluate and save ckpt every epoch
                 if batch_idx + 1 == self.train_params['updates_per_epoch']:
@@ -329,6 +322,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                     #     prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
+            self.lr_schedulers['default'].step()
             logger.info(f"This epoch takes {datetime.now() - epoch_start_time}")
             logger.info(f"PROGRESS: {100.0 * (epoch + 1) / num_epochs:.2f}%")
             logger.info(f"Config files are at {self.opt['conf_files']}")
