@@ -186,17 +186,24 @@ class VCOCODatasetMapper:
         if self.is_train:
             boxes = [BoxMode.convert(obj["bbox"], obj["bbox_mode"], BoxMode.XYXY_ABS) for obj in annos]
             target = Instances(image_size)
-            target.gt_boxes = Boxes(boxes)
+            
+            tmp_boxes = Boxes(boxes)
+            tmp_boxes.tensor[:, 0::2].clamp_(min=0, max=image_size[1])
+            tmp_boxes.tensor[:, 1::2].clamp_(min=0, max=image_size[0])
+            keep = (tmp_boxes.tensor[:, 3] > tmp_boxes.tensor[:, 1]) & (tmp_boxes.tensor[:, 2] > tmp_boxes.tensor[:, 0])
+            tmp_boxes = tmp_boxes[keep]
+            
+            target.gt_boxes = tmp_boxes
             target.gt_areas = (target.gt_boxes.tensor[:, 2] - target.gt_boxes.tensor[:, 0]) * (target.gt_boxes.tensor[:, 3] - target.gt_boxes.tensor[:, 1])
 
             classes = [
                 (i, self._valid_obj_ids.index(obj["category_id"]))
                 for i, obj in enumerate(annos)
             ]
+
             classes = torch.tensor(classes, dtype=torch.int64)
-
+            classes = classes[keep]
             kept_box_indices = [label[0] for label in classes]
-
             classes = classes[:, 1]
 
             target.gt_classes = classes

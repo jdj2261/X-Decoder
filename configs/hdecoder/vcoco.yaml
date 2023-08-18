@@ -44,6 +44,7 @@ VERBOSE: true
 MODEL:
   NAME: hoi_model
   HEAD: hoi_head
+  TYPE: small
   MASK_ON: false
   KEYPOINT_ON: false
   LOAD_PROPOSALS: false
@@ -176,7 +177,7 @@ VCOCO:
     MIN_SIZE_TEST: 800
     MAX_SIZE_TEST: 1333
     IMAGE_SIZE: 1024
-    MIN_SCALE: 0.1
+    MIN_SCALE: 0.6
     MAX_SCALE: 2.0
     IGNORE_VALUE: 255
     COLOR_AUG_SSD: False

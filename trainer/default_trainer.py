@@ -204,7 +204,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
         self.models = {model_name: self.raw_models[model_name] for model_name in self.model_names}
         self._initialize_ddp()
 
-        # TODO
         if self.opt.get('WEIGHT', False):
             self.load_weight(self.opt['RESUME_FROM'], must_exist=True)
         if self.opt.get('RESUME', False):
@@ -234,9 +233,10 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
         train_prev_logged_time = datetime.now()
         
-        best_perf = 0.0
+        best_perf = -1.0
         best_model = False
-        prev_tags = "_best"
+        best_prev_tags = "_best"
+        last_prev_tags = "_last"
 
         for epoch in range(self.train_params['start_epoch_idx'], num_epochs):
             self.train_params['current_epoch_idx'] = epoch
@@ -249,77 +249,88 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                         continue
 
                 self.train_params['current_batch_idx'] = batch_idx
-                prev_optim_steps = current_optim_steps
+                # prev_optim_steps = current_optim_steps
                 prev_total_batch_size = self.train_params['total_batch_size']
 
                 # update
                 self.train_step(batch)
+
                 for i, g in enumerate(self.lr_schedulers['default'].optimizer.param_groups):
                     is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
                     if is_close:
                         g["lr"] = 1e-05
 
-                current_optim_steps = self._get_and_validate_current_optim_steps()
+                # current_optim_steps = self._get_and_validate_current_optim_steps()
 
                 # logging
-                if prev_optim_steps != current_optim_steps:  # an optimizer update was made
-                    log_first = self.opt.get("LOG_FIRST", 10)
-                    log_every = self.opt.get("LOG_EVERY", 100)
-                    if (current_optim_steps % log_every == 0) or (epoch == 0 and current_optim_steps <= log_first): # print logging
+                # if prev_optim_steps != current_optim_steps:  # an optimizer update was made
+                log_first = self.opt.get("LOG_FIRST", 10)
+                log_every = self.opt.get("LOG_EVERY", 100)
+                if ((batch_idx + 1) % log_every == 0) or (epoch == 0 and (batch_idx + 1) <= log_first): # print logging
+                    last_lr = {}
+                    for module_name in self.model_names:
+                        last_lr[module_name] = self.lr_schedulers[module_name].optimizer.param_groups[0]['lr']
 
-                        last_lr = {}
-                        for module_name in self.model_names:
-                            last_lr[module_name] = self.lr_schedulers[module_name].optimizer.param_groups[0]['lr']
+                    train_time_delta = (datetime.now() - train_prev_logged_time).total_seconds()
+                    train_prev_logged_time = datetime.now()
+                    MB = 1024.0 * 1024.0
+                    memory = torch.cuda.max_memory_allocated() / MB
 
-                        train_time_delta = (datetime.now() - train_prev_logged_time).total_seconds()
-                        train_prev_logged_time = datetime.now()
-                        MB = 1024.0 * 1024.0
-                        memory = torch.cuda.max_memory_allocated() / MB
-
-                        if self.opt['rank'] == 0:
-                            if self.wdb:
-                                self.wdb.log({"learning rate": list(last_lr.values())[0]})
-                                for key, obj in self.train_loss.losses.items():
-                                    average_name = key + "_avg"
-                                    self.wdb.log({average_name: obj.avg})
-                                    
-                            logger.info(f"epochs[{epoch:6}] optim steps[{batch_idx+1:.0f}/{self.dataset_length}] "
-                                f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
-                                f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
-                                # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
-                                f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
-                                f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
-                                f"total items[{self.train_params['total_batch_size']}] "
-                                f"mini batches[{self.train_params['num_updates']:6}] "
-                                f"memory[{memory:.0f}] "
-                                f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
+                    if self.opt['rank'] == 0:
+                        if self.wdb:
+                            self.wdb.log({"learning rate": list(last_lr.values())[0]})
+                            for key, obj in self.train_loss.losses.items():
+                                average_name = key + "_avg"
+                                self.wdb.log({average_name: obj.avg})
+                                
+                        logger.info(f"epochs[{epoch:6}] optim steps[{batch_idx+1:.0f}/{self.dataset_length}] "
+                            f"learning rate[{', '.join([f'{key}: {val:.5e}' for key, val in last_lr.items()])}] "
+                            f"train loss[{', '.join([f'{key}: {obj.val:.5f}/{obj.avg:.5f}' for key, obj in self.train_loss.losses.items()])}] "
+                            # f"total_loss[{total_loss:.5f}/{total_loss_avg:.5f} "
+                            f"items per batch[{self.train_params['total_batch_size'] - prev_total_batch_size}] "
+                            f"items per second[{(self.train_params['total_batch_size'] - prev_total_batch_size) / train_time_delta:.2f}] "
+                            f"total items[{self.train_params['total_batch_size']}] "
+                            f"mini batches[{self.train_params['num_updates']:6}] "
+                            f"memory[{memory:.0f}] "
+                            f"epoch remaining[{str((datetime.now() - epoch_start_time) / (batch_idx + 1) * (self.train_params['updates_per_epoch'] - batch_idx - 1)).split('.')[0]}]")
 
                 # evaluate and save ckpt every epoch
                 if batch_idx + 1 == self.train_params['updates_per_epoch']:
                     results = self._eval_on_set(self.save_folder)
-                    self.save_checkpoint(self.train_params['num_updates'])
-                
-                    best_mAP_all = results['vcoco_val/vcoco']['mAP_all']
 
+                    if (epoch % 10) == 0:
+                        str_last_10_epoch = "_" + str(epoch) + "_epoch"
+                        self.save_checkpoint(self.train_params['num_updates'], extra=str_last_10_epoch)
+                    
+        
+                    if self.opt['rank'] == 0:
+                        save_dir = os.path.join(self.save_folder, last_prev_tags)
+                        if os.path.isdir(save_dir):
+                            shutil.rmtree(save_dir)
+                            logger.info(f"removed previous save directory..")
+                    self.save_checkpoint(self.train_params['num_updates'], extra="_last")
+                    last_prev_tags = str(self.train_params['num_updates']).zfill(8) + "_last"
+                    
+                    best_mAP_all = results['vcoco_val/vcoco']['mAP_all']
                     if self.wdb:
                         self.wdb.log({"mAP_all": best_mAP_all})
-                        self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
+                        # self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
                     
-                    # if best_mAP_all > best_perf:
-                    #     best_perf = best_mAP_all
-                    #     best_model = True
-                    # else:
-                    #     best_model = False
+                    if best_mAP_all > best_perf:
+                        best_perf = best_mAP_all
+                        best_model = True
+                    else:
+                        best_model = False
 
-                    # if best_model:
-                    #     save_dir = os.path.join(self.save_folder, prev_tags)
-                    #     if self.opt['rank'] == 0:
-                    #         save_dir = os.path.abspath(save_dir)
-                    #         shutil.rmtree(save_dir)
-                    #         logger.info(f"removed previous save directory..")
-
-                    #     self.save_checkpoint(self.train_params['num_updates'], is_best=True)
-                    #     prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
+                    if self.opt['rank'] == 0:
+                        if best_model:
+                            save_dir = os.path.join(self.save_folder, best_prev_tags)
+                            save_dir = os.path.abspath(save_dir)
+                            if os.path.isdir(save_dir):
+                                shutil.rmtree(save_dir)
+                                logger.info(f"removed previous save directory..")
+                        self.save_checkpoint(self.train_params['num_updates'], is_best=True)
+                        best_prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
             self.lr_schedulers['default'].step()

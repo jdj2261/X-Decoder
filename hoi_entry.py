@@ -7,16 +7,14 @@
 
 import os
 import sys
-import torch
 import logging
-import wandb
 
 from utils.arguments import load_opt_command
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# TODO wandb
+
 def main(args=None):
     '''
     [Main function for the entry point]
@@ -43,14 +41,13 @@ def main(args=None):
     else:
         assert False, "The trainer type: {} is not defined!".format(opt['TRAINER'])
 
-    # Add Wandb
     if opt["WANDB"]:
         import wandb
         wdb = wandb
         wdb.init(
             config=opt,
             project="X-Decoder_HOI_230817",
-            name=f'MODEL({opt["MODEL"]["NAME"]})_EPOCHS({opt["SOLVER"]["MAX_NUM_EPOCHS"]})_SCHEDULER({opt["SOLVER"]["LR_SCHEDULER_NAME"]}_{opt["SOLVER"]["LR_STEP"]})_LOG_EVERY({opt["LOG_EVERY"]})',
+            name=f'MODEL({opt["MODEL"]["NAME"] + "_" + opt["MODEL"]["TYPE"]})_EPOCHS({opt["SOLVER"]["MAX_NUM_EPOCHS"]})_SCHEDULER({opt["SOLVER"]["LR_SCHEDULER_NAME"]}_{opt["SOLVER"]["LR_STEP"]})_LOG_EVERY({opt["LOG_EVERY"]})',
         )
         opt["WANDB"] = wdb
 
