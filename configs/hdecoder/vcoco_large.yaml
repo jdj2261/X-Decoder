@@ -153,25 +153,7 @@ SOLVER:
   FIX_PARAM:
     "backbone": false
     "encoder": false
-# VCOCO:
-#   INPUT:
-#     MIN_SIZE_TEST: 512
-#     MAX_SIZE_TEST: 1024
-#     PIXEL_MEAN: [123.675, 116.280, 103.530]
-#     PIXEL_STD: [58.395, 57.120, 57.375]
-#     NUM_QUERIES: 100
-#     DATASET_MAPPER_NAME: "vcoco"
-#   DATALOADER:
-#     FILTER_EMPTY_ANNOTATIONS: False
-#     NUM_WORKERS: 0
-#     LOAD_PROPOSALS: False
-#     SAMPLER_TRAIN: "TrainingSampler"
-#     ASPECT_RATIO_GROUPING: False
-#   TEST:
-#     BATCH_SIZE_TOTAL: 2
-#   TRAIN:
-#     BATCH_SIZE_TOTAL: 2
-#     BATCH_SIZE_PER_GPU: 1
+
 VCOCO:
   INPUT:
     MIN_SIZE_TRAIN: 800
@@ -180,7 +162,7 @@ VCOCO:
     MIN_SIZE_TEST: 800
     MAX_SIZE_TEST: 1333
     IMAGE_SIZE: 1024
-    MIN_SCALE: 0.1
+    MIN_SCALE: 0.6
     MAX_SCALE: 2.0
     IGNORE_VALUE: 255
     COLOR_AUG_SSD: False
@@ -205,3 +187,8 @@ VCOCO:
   TRAIN:
     BATCH_SIZE_TOTAL: 2
     BATCH_SIZE_PER_GPU: 1
+
+POSTPROCESS:
+  OFFICIAL:
+    USE: false
+    "synario": 1

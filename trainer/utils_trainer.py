@@ -77,7 +77,7 @@ class UtilsTrainer(DistributedTrainer):
         tag = str(tag).zfill(8)
         if extra:
             tag += extra
-        logger.warning('Saving best checkpoint...')
+        logger.warning(f'Saving {extra[1:]} checkpoint...')
 
         resume_epoch_idx = self.train_params['current_epoch_idx']
         resume_batch_idx = self.train_params['current_batch_idx'] + 1

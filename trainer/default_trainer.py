@@ -314,7 +314,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                     best_mAP_all = results['vcoco_val/vcoco']['mAP_all']
                     if self.wdb:
                         self.wdb.log({"mAP_all": best_mAP_all})
-                        # self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
+                        self.wdb.log({"mAP_thesis": results['vcoco_val/vcoco']['mAP_thesis']})
                     
                     if best_mAP_all > best_perf:
                         best_perf = best_mAP_all
@@ -329,7 +329,7 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                             if os.path.isdir(save_dir):
                                 shutil.rmtree(save_dir)
                                 logger.info(f"removed previous save directory..")
-                        self.save_checkpoint(self.train_params['num_updates'], is_best=True)
+                        self.save_checkpoint(self.train_params['num_updates'], extra="_best")
                         best_prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
