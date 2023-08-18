@@ -329,8 +329,8 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                             if os.path.isdir(save_dir):
                                 shutil.rmtree(save_dir)
                                 logger.info(f"removed previous save directory..")
-                        self.save_checkpoint(self.train_params['num_updates'], extra="_best")
-                        best_prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
+                            self.save_checkpoint(self.train_params['num_updates'], extra="_best")
+                            best_prev_tags = str(self.train_params['num_updates']).zfill(8) + "_best"
                     break
 
             self.lr_schedulers['default'].step()
