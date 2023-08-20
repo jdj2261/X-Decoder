@@ -264,8 +264,3 @@ class CDNHOI(nn.Module):
                     result_filtered.append(filtered_dict)
             results_filtered.append(result_filtered)
         return results_filtered
-
-
-@register_model
-def get_hoi_model(cfg, **kwargs):
-    return CDNHOI(cfg)
