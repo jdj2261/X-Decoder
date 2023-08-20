@@ -34,8 +34,6 @@ class OfficialVCOCOEvaluator(DatasetEvaluator):
         assert np.all(np.equal(np.sort(np.unique(self.VCOCO[0]['image_id'])), self.image_ids))
         self._init_coco()
         self._init_vcoco()
-
-        
         self.detections = []
 
     @staticmethod
@@ -92,6 +90,7 @@ class OfficialVCOCOEvaluator(DatasetEvaluator):
         map = {}
         vcocodb = self._get_vcocodb()
         for eval_type in eval_types:
+            print(f"Evaluate {eval_type}...")
             map['AP_{}'.format(eval_type)] = self._do_role_eval(vcocodb, self.detections, ovr_thresh=ovr_thresh, eval_type=eval_type)
         return map
     

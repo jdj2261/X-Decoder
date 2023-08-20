@@ -1411,10 +1411,10 @@ def draw_hoi_results(images, hoi_results, title="Predicted_Result", is_save=Fals
                 object_id = subject_id
                 result_text = f"<{coco_class_list[object_id]}, {verb_classes[category_id_verb]}> ({int(score)}%)"
             
-            if object_id != 80 and object_id != 0:
-                ax.add_patch(plt.Rectangle(
-                    (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
-                                    fill=False, color='b', linewidth=3))
+            # if object_id != 80 and object_id != 0:
+            #     ax.add_patch(plt.Rectangle(
+            #         (sub_xmin, sub_ymin), sub_xmax - sub_xmin, sub_ymax - sub_ymin,
+            #                         fill=False, color='b', linewidth=3))
 
             ax.add_patch(plt.Rectangle(
                 (obj_xmin, obj_ymin), obj_xmax - obj_xmin, obj_ymax - obj_ymin,

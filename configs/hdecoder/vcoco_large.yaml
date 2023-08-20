@@ -35,7 +35,7 @@ LOADER:
 ##################
 VERBOSE: true
 MODEL:
-  NAME: hoi_large_model
+  NAME: hoi_model
   HEAD: hoi_head
   MASK_ON: false
   KEYPOINT_ON: false

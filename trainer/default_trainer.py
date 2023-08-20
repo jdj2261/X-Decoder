@@ -89,7 +89,6 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
 
     def _eval_on_set(self, save_folder):
         logger.info(f"Evaluation start ...")
-        print(f"Evaluation start ...")
         results = self.pipeline.evaluate_model(self, save_folder)
         if self.opt['rank'] == 0:
             logger.info(results)
