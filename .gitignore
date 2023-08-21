@@ -109,5 +109,7 @@ balloon
 balloon/*
 output
 output/*
+output_large
+output_large/*
 wandb
 checkpoints
