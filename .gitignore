@@ -109,7 +109,5 @@ balloon
 balloon/*
 output
 output/*
-v-coco
-v-coco/*
 wandb
 checkpoints
