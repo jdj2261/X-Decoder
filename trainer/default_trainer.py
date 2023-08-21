@@ -254,10 +254,10 @@ class DefaultTrainer(UtilsTrainer, DistributedTrainer):
                 # update
                 self.train_step(batch)
 
-                for i, g in enumerate(self.lr_schedulers['default'].optimizer.param_groups):
-                    is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
-                    if is_close:
-                        g["lr"] = 1e-05
+                # for i, g in enumerate(self.lr_schedulers['default'].optimizer.param_groups):
+                #     is_close = math.isclose(g['initial_lr'], 1e-05, rel_tol=1e-9, abs_tol=1e-12)
+                #     if is_close:
+                #         g["lr"] = 1e-05
 
                 # current_optim_steps = self._get_and_validate_current_optim_steps()
 
