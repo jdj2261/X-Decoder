@@ -160,26 +160,7 @@ class BaseEncoder(nn.Module):
         return ret
 
     def forward_features(self, features):
-        multi_scale_features = []
-        num_cur_levels = 0
-        # Reverse feature maps into top-down order (from low to high resolution)
-        for idx, f in enumerate(self.in_features[::-1]):
-            x = features[f]
-            lateral_conv = self.lateral_convs[idx]
-            output_conv = self.output_convs[idx]
-            if lateral_conv is None:
-                y = output_conv(x)
-            else:
-                cur_fpn = lateral_conv(x)
-                # Following FPN implementation, we use nearest upsampling here
-                y = cur_fpn + F.interpolate(y, size=cur_fpn.shape[-2:], mode="nearest")
-                y = output_conv(y)
-            if num_cur_levels < self.maskformer_num_feature_levels:
-                multi_scale_features.append(y)
-                num_cur_levels += 1
-
-        mask_features = self.mask_features(y) if self.mask_on else None
-        return mask_features, None, multi_scale_features
+        pass
 
     def forward(self, features, targets=None):
         # logger = logging.getLogger(__name__)
@@ -246,24 +227,7 @@ class TransformerEncoderHOI(BaseEncoder):
         )
         N_steps = conv_dim // 2
         self.pe_layer = PositionEmbeddingSine(N_steps, normalize=True)
-
-        # update layer
-        use_bias = norm == ""
-        output_norm = get_norm(norm, conv_dim)
-        # output_conv = Conv2d(
-        #     conv_dim,
-        #     conv_dim,
-        #     kernel_size=3,
-        #     stride=1,
-        #     padding=1,
-        #     bias=use_bias,
-        #     norm=output_norm,
-        #     activation=F.relu,
-        # )
-        # weight_init.c2_xavier_fill(output_conv)
         delattr(self, "layer_{}".format(len(self.in_features)))
-        # self.add_module("layer_{}".format(len(self.in_features)), output_conv)
-        # self.output_convs[0] = output_conv
 
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
@@ -291,10 +255,6 @@ class TransformerEncoderHOI(BaseEncoder):
         return transformer_encoder_features, pos
 
     def forward(self, features, targets=None):
-        # logger = logging.getLogger(__name__)
-        # logger.warning(
-        #     "Calling forward() may cause unpredicted behavior of TransformerEncoderHOI module."
-        # )
         return self.forward_features(features)
 
 @register_encoder

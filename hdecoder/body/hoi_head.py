@@ -75,10 +75,6 @@ class CDN(nn.Module):
         pos_embed = pos.flatten(2).permute(2, 0, 1)
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1)
 
-        # DETR 참고
-        if task == "obj_detect":
-            pass
-
         if task == "hoi":
             # Decoder
             hopd_out, interaction_decoder_out, _ = self.hoi_decoder(encoder_features, mask, query_embed, pos_embed)

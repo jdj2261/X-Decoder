@@ -30,7 +30,7 @@ FIND_UNUSED_PARAMETERS: false
 
 # Speed up training
 FP16: false
-PORT: '36873'
+PORT: '2222'
 
 # misc
 LOADER:
@@ -48,8 +48,7 @@ MODEL:
   MASK_ON: false
   KEYPOINT_ON: false
   LOAD_PROPOSALS: false
-  DIM_PROJ: 512
-  BACKBONE_DIM: 2048
+
   BACKBONE:
     NAME: focal_dw
     PRETRAINED: ''
@@ -76,7 +75,6 @@ MODEL:
   ENCODER:
     NAME: transformer_encoder_hoi
     IGNORE_VALUE: 255
-    NUM_CLASSES: 133
     LOSS_WEIGHT: 1.0
     CONVS_DIM: 512
     MASK_DIM: 512
