@@ -13,6 +13,7 @@ SAVE_DIR: 'data/output_large/test'
 base_path: "./"
 WANDB: true
 AUX_LOSS: true
+
 # Resume Logistic
 RESUME: false
 WEIGHT: false
@@ -20,9 +21,11 @@ RESET_DATA_LOADER: false
 RESUME_FROM: ''
 PYLEARN_MODEL: '' # model resume when evaluation
 DONT_LOAD_MODEL: true
+
 # Logging and Debug
 LOG_EVERY: 10
 FIND_UNUSED_PARAMETERS: false
+
 # Speed up training
 FP16: false
 PORT: '36873'
@@ -163,7 +166,7 @@ VCOCO:
     MAX_SIZE_TEST: 1333
     IMAGE_SIZE: 1024
     MIN_SCALE: 0.6
-    MAX_SCALE: 2.0
+    MAX_SCALE: 1.0
     IGNORE_VALUE: 255
     COLOR_AUG_SSD: False
     SIZE_DIVISIBILITY: 32
