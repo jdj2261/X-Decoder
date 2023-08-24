@@ -1575,3 +1575,9 @@ def draw_hoi_attention(hoi_results, org_image, conv_features, dec_attn_weights, 
         print(result_text)
         ax.imshow(attention_map, alpha=alpha, cmap=cmap)
     plt.show()
+
+def to_wandb_img(wdb, data, clamp=False):
+    data = data[:8]
+    if clamp:
+        data = data.clamp(min=0, max = 1)
+    return [wdb.Image(img) for img in np.split(data.detach().cpu().numpy(), data.size(0))]
