@@ -190,7 +190,7 @@ VCOCO:
     CROP:
       ENABLED: True
       TYPE: "absolute"
-      SIZE: (512, 1024)
+      SIZE: [384, 600]
       SINGLE_CATEGORY_MAX_AREA: 1.0
     # CROP:
     #   ENABLED: True

@@ -108,7 +108,7 @@ def build_transform_gen(cfg, is_train):
         augmentation.append(
                 T.RandomCrop(
                     cfg_input_crop['TYPE'],
-                    crop_size = (384, 600),
+                    crop_size = cfg_input_crop['SIZE'],
                 )
                 
             )
