@@ -26,6 +26,53 @@ from xdecoder.utils import configurable
 __all__ = ["VCOCODatasetMapper"]
 
 
+# def build_transform_gen(cfg, is_train):
+#     """
+#     Create a list of default :class:`Augmentation` from config.
+#     Now it includes resizing and flipping.
+#     Returns:
+#         list[Augmentation]
+#     """
+#     if is_train:
+#         cfg_input = cfg["INPUT"]
+#         image_size = cfg_input["IMAGE_SIZE"]
+#         min_scale = cfg_input["MIN_SCALE"]
+#         max_scale = cfg_input["MAX_SCALE"]
+
+#         augmentation = []
+
+#         if cfg_input["RANDOM_FLIP"] != "none":
+#             augmentation.append(
+#                 T.RandomFlip(
+#                     horizontal=cfg_input["RANDOM_FLIP"] == "horizontal",
+#                     vertical=cfg_input["RANDOM_FLIP"] == "vertical",
+#                 )
+#             )
+
+#         augmentation.extend(
+#             [
+#                 T.ResizeScale(
+#                     min_scale=min_scale,
+#                     max_scale=max_scale,
+#                     target_height=image_size,
+#                     target_width=image_size,
+#                 ),
+#                 T.FixedSizeCrop(crop_size=(image_size, image_size)),
+#             ]
+#         )
+#     else:
+#         cfg_input = cfg["INPUT"]
+#         image_size = cfg_input["IMAGE_SIZE"]
+#         augmentation = []
+
+#         augmentation.extend(
+#             [
+#                 T.Resize((image_size, image_size)),
+#             ]
+#         )
+
+#     return augmentation
+
 def build_transform_gen(cfg, is_train):
     """
     Create a list of default :class:`Augmentation` from config.
@@ -38,17 +85,34 @@ def build_transform_gen(cfg, is_train):
         image_size = cfg_input["IMAGE_SIZE"]
         min_scale = cfg_input["MIN_SCALE"]
         max_scale = cfg_input["MAX_SCALE"]
+        cfg_input_crop = cfg_input['CROP']
+        # augmentation = []
 
-        augmentation = []
-
+        augmentation = [
+            T.ResizeShortestEdge(
+                cfg_input['MIN_SIZE_TRAIN'],
+                cfg_input['MAX_SIZE_TRAIN'],
+                cfg_input['MIN_SIZE_TRAIN_SAMPLING'],
+            )
+        ]
+        
         if cfg_input["RANDOM_FLIP"] != "none":
             augmentation.append(
                 T.RandomFlip(
                     horizontal=cfg_input["RANDOM_FLIP"] == "horizontal",
                     vertical=cfg_input["RANDOM_FLIP"] == "vertical",
-                )
+                ),
+                
             )
 
+        augmentation.append(
+                T.RandomCrop(
+                    cfg_input_crop['TYPE'],
+                    crop_size = (384, 600),
+                )
+                
+            )
+        
         augmentation.extend(
             [
                 T.ResizeScale(
@@ -56,8 +120,7 @@ def build_transform_gen(cfg, is_train):
                     max_scale=max_scale,
                     target_height=image_size,
                     target_width=image_size,
-                ),
-                T.FixedSizeCrop(crop_size=(image_size, image_size)),
+                )
             ]
         )
     else:
