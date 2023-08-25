@@ -175,7 +175,7 @@ VCOCO:
     MIN_SIZE_TEST: 800
     MAX_SIZE_TEST: 1333
     IMAGE_SIZE: 1024
-    MIN_SCALE: 1 # 0.1
+    MIN_SCALE: 0.1 # 0.1
     MAX_SCALE: 2
     # IMAGE_SIZE: 1024
     # MIN_SCALE: 0.8 # 0.1
@@ -187,13 +187,13 @@ VCOCO:
     FORMAT: "RGB"
     PIXEL_MEAN: [123.675, 116.280, 103.530]
     PIXEL_STD: [58.395, 57.120, 57.375]
-    CROP:
-      ENABLED: True
-      TYPE: "absolute"
-      SIZE: [384, 600]
-      SINGLE_CATEGORY_MAX_AREA: 1.0
     # CROP:
     #   ENABLED: True
+    #   TYPE: "absolute"
+    #   SIZE: [384, 600]
+    #   SINGLE_CATEGORY_MAX_AREA: 1.0
+    CROP:
+      ENABLED: True
     NUM_QUERIES: 100
     DATASET_MAPPER_NAME: "vcoco"
   DATALOADER:
