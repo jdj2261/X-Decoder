@@ -465,6 +465,8 @@ def random_color():
     return b, g, r
 
 def get_random_images(image_root:str, nums=20, seed=0):
-    random.seed(seed)
+    if seed is not None:
+        random.seed(seed)
+        
     images = [os.path.abspath(os.path.join(image_root, image)) for image in os.listdir(image_root)]
     return random.sample(images, k=nums)
