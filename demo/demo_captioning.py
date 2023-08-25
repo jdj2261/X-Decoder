@@ -46,7 +46,8 @@ def main(args=None):
     opt = init_distributed(opt)
 
     # META DATA
-    pretrained_pth = os.path.join(opt["WEIGHT"])
+    print(opt["PYLEARN_MODEL"])
+    pretrained_pth = os.path.join(opt["PYLEARN_MODEL"])
     if "novg" not in pretrained_pth:
         assert (
             False
