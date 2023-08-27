@@ -182,7 +182,7 @@ def register_vcoco(
     MetadataCatalog.get(name).set(
         image_root=image_root,
         json_file=annot_json,
-        evaluator_type="vcoco",
+        evaluator_type="hoi",
         correct_mat_dir=correct_mat_dir,
         vsrl_annot_file=vsrl_annot_file,
         coco_annot_file=coco_file,

@@ -606,7 +606,7 @@ def build_evaluator(cfg, dataset_name, output_folder=None):
     if evaluator_type == "coco":
         evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
 
-    if evaluator_type == "vcoco":
+    if evaluator_type == "hoi":
         if cfg["POSTPROCESS"]["OFFICIAL"]["USE"]:
             evaluator_list.append(OfficialVCOCOEvaluator(
                 vsrl_annot_file=MetadataCatalog.get(cfg["DATASETS"]["TEST"][0]).vsrl_annot_file,
